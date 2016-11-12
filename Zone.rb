@@ -16,8 +16,8 @@ SQUARE_WIDTH = 10
 $num_bldgs = 0
 
 # Init array for global occupied squares, array grows as more objects are on screen.
-$taken_x = []
-$taken_y = []
+$static_x = []
+$static_y = []
 
 # $x and $y currently only track player, var may be renamed to increase readability.
 $x = []
@@ -102,10 +102,10 @@ class Board < Qt::Widget
     def drawObjects painter
 
                 painter.drawImage $x[0], $y[0], @marine
-                painter.drawImage $taken_x[0], $taken_y[0], @bldg1
-                print "$taken_x: ", $taken_x.to_s, "\n"
-                print "$taken_y: ", $taken_y.to_s, "\n"
-                painter.drawImage $taken_x[16], $taken_y[16], @bldg2
+                painter.drawImage $static_x[0], $static_y[0], @bldg1
+                print "$static_x: ", $static_x.to_s, "\n"
+                print "$static_y: ", $static_y.to_s, "\n"
+                painter.drawImage $static_x[16], $static_y[16], @bldg2
     end
 
 
@@ -173,21 +173,21 @@ class Board < Qt::Widget
     def checkCollision
         hit=0
         p=0
-        while p < $taken_x.count
-          if $taken_x[p]==$x[0]
+        while p < $static_x.count
+          if $static_x[p]==$x[0]
             puts "HIT X!!!!"
-            print "$taken_y[", p,"] is", $taken_y[p]
-            hit=1 if $taken_y[p]==$y[0]
+            print "$static_y[", p,"] is", $static_y[p]
+            hit=1 if $static_y[p]==$y[0]
           end
           p+=1
         end
            
         p=0
-        while p < $taken_y.count
-          if $taken_y[p]==$y[0]
+        while p < $static_y.count
+          if $static_y[p]==$y[0]
             puts "HIT Y!!!!"
-            print "$taken_x[", p,"] is", $taken_x[p]
-            hit=1 if $taken_x[p]==$x[0]
+            print "$static_x[", p,"] is", $static_x[p]
+            hit=1 if $static_x[p]==$x[0]
           end
           p+=1
         end
@@ -251,15 +251,15 @@ class Board < Qt::Widget
         # Array position X and Y MUST match up for collision code
         p=0
         q=0
-        r=$taken_x.count
-        s=$taken_y.count
+        r=$static_x.count
+        s=$static_y.count
         while p < bldg_temp.width
           q=0
           while q < bldg_temp.height
-            $taken_x.push x+p
-            print "$taken_x: ", $taken_x.to_s, "\n"
-            $taken_y.push y+q
-            print "$taken_y: ", $taken_y.to_s, "\n"
+            $static_x.push x+p
+            print "$static_x: ", $static_x.to_s, "\n"
+            $static_y.push y+q
+            print "$static_y: ", $static_y.to_s, "\n"
             q+=SQUARE_HEIGHT
           end
           p+=SQUARE_WIDTH 
