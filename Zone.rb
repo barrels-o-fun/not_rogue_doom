@@ -7,8 +7,15 @@
 # GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
-SQUARE_HEIGHT = 20
-SQUARE_WIDTH = 10
+# SQUARE_HEIGHT = 20
+# SQUARE_WIDTH = 10
+PLAYER_SPRITE= "marine_lolx2.png"
+
+
+# Check game characters height/width
+@marine = Qt::Image.new PLAYER_SPRITE
+SQUARE_HEIGHT = @marine.height
+SQUARE_WIDTH = @marine.width
 
 # Debug
 $debug=0
@@ -28,7 +35,7 @@ $x = []
 $y = []
 
 # Init player initial position
-$player_x=WIDTH-50
+$player_x=WIDTH-60
 $player_y=HEIGHT-HEIGHT/2
 # Check if player is on the SQUARE grid, else place at 0 for offending axis.
 if $player_x%SQUARE_WIDTH != 0 
@@ -63,15 +70,15 @@ class Board < Qt::Widget
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
-      @bldg1 = build_house( 200, 100 )
+      @bldg1 = build_house( 120, 120 )
       @bldg2 = build_house( WIDTH-140, HEIGHT-120 )
-      @bldg3 = build_house( 200, 300 )
+      @bldg3 = build_house( 200, 280 )
 
       
 
       # This rescue doesn't seem to work - look into at some point? 
       begin
-        @marine = Qt::Image.new "marine_lol.png"
+        @marine = Qt::Image.new PLAYER_SPRITE
       rescue
         puts "cannot load images"
       end
