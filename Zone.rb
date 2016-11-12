@@ -10,10 +10,14 @@ HEIGHT = 480
 SQUARE_HEIGHT = 20
 SQUARE_WIDTH = 10
 
+# Debug
+$debug=0
+
 # Idea - Have multiple arrays (or hashes?) for different objects.
 #
 # Init global, tracks number of buildings - might not be needed!
 $num_bldgs = 0
+$bldgs = []
 
 # Init array for global occupied squares, array grows as more objects are on screen.
 $static_x = []
@@ -61,6 +65,9 @@ class Board < Qt::Widget
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
       @bldg1 = build_house( 200, 100 )
       @bldg2 = build_house( WIDTH-140, HEIGHT-120 )
+      @bldg3 = build_house( 200, 300 )
+
+      
 
       # This rescue doesn't seem to work - look into at some point? 
       begin
@@ -101,11 +108,21 @@ class Board < Qt::Widget
     # marine and two buildings.
     def drawObjects painter
 
+
+        # Paint buildings
+        p=0
+        q=0
+        while p < $bldgs.count
+          painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
+          # Due to the way we store collison data, this logic ensures each building
+          # is placed in the right place
+          q+=($bldgs[p].width/SQUARE_WIDTH)*($bldgs[p].height/SQUARE_HEIGHT)
+          p+=1
+        end  
+
                 painter.drawImage $x[0], $y[0], @marine
-                painter.drawImage $static_x[0], $static_y[0], @bldg1
-                print "$static_x: ", $static_x.to_s, "\n"
-                print "$static_y: ", $static_y.to_s, "\n"
-                painter.drawImage $static_x[16], $static_y[16], @bldg2
+                print "$static_x: ", $static_x.to_s, "\n" unless $debug < 1
+                print "$static_y: ", $static_y.to_s, "\n" unless $debug < 1
     end
 
 
@@ -175,8 +192,8 @@ class Board < Qt::Widget
         p=0
         while p < $static_x.count
           if $static_x[p]==$x[0]
-            puts "HIT X!!!!"
-            print "$static_y[", p,"] is", $static_y[p]
+            puts "HIT X!!!!"  unless $debug==0
+            print "$static_y[", p,"] is", $static_y[p] unless $debug < 1
             hit=1 if $static_y[p]==$y[0]
           end
           p+=1
@@ -185,8 +202,8 @@ class Board < Qt::Widget
         p=0
         while p < $static_y.count
           if $static_y[p]==$y[0]
-            puts "HIT Y!!!!"
-            print "$static_x[", p,"] is", $static_x[p]
+            puts "HIT Y!!!!" unless $debug==0
+            print "$static_x[", p,"] is", $static_x[p] unless $debug < 1
             hit=1 if $static_x[p]==$x[0]
           end
           p+=1
@@ -257,13 +274,14 @@ class Board < Qt::Widget
           q=0
           while q < bldg_temp.height
             $static_x.push x+p
-            print "$static_x: ", $static_x.to_s, "\n"
+            print "$static_x: ", $static_x.to_s, "\n" unless $debug < 1
             $static_y.push y+q
-            print "$static_y: ", $static_y.to_s, "\n"
+            print "$static_y: ", $static_y.to_s, "\n" unless $debug < 1
             q+=SQUARE_HEIGHT
           end
           p+=SQUARE_WIDTH 
         end
+      $bldgs.push bldg_temp
       return bldg_temp
     end
 
