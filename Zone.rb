@@ -9,7 +9,10 @@ WIDTH = 640
 HEIGHT = 480
 # SPRITE_HEIGHT = 20
 # SPRITE_WIDTH = 10
-$player_sprite= "marine_lolx2.png"
+$player_sprite_left= "marine_lolx2_left.png"
+$player_sprite_right= "marine_lolx2_right.png"
+$player_sprite_up= "marine_lolx2_up.png"
+$player_sprite_down= "marine_lolx2_down.png"
 $pewpew_sprite_left = "pewpew_left.png"
 $pewpew_sprite_right = "pewpew_right.png"
 $pewpew_sprite_up = "pewpew_up.png"
@@ -21,7 +24,7 @@ ERR_TOLERANCE=2
 
 
 # Check game characters height/width
-@marine = Qt::Image.new $player_sprite
+@marine = Qt::Image.new $player_sprite_left
 SPRITE_HEIGHT = @marine.height
 SPRITE_WIDTH = @marine.width
 # Set how much player moves, higher numbers, smaller movements
@@ -34,7 +37,7 @@ $debug=0
 
 # Idea - Have multiple arrays (or hashes?) for different objects.
 #
-# Init global, tracks number of buildings - might not be needed!
+# Init global, tracks number of buildings
 $bldgs = []
 
 # Init array for global occupied squares, array grows as more objects are on screen.
@@ -94,8 +97,8 @@ class Board < Qt::Widget
       # This rescue doesn't seem to work - look into at some point? 
       # Paint images must be in initGame for game to function.
       begin
-        @marine = Qt::Image.new $player_sprite
-        @pewpew = Qt::Image.new $pewpew_sprite_right
+        @marine = Qt::Image.new $player_sprite_left
+        @pewpew = Qt::Image.new $pewpew_sprite_left
       rescue
         puts "cannot load images"
       end
@@ -207,21 +210,26 @@ class Board < Qt::Widget
         if @left
             $x[0] -= PLAYER_MOVE_X  unless $x[0]==0
             @shoot_dir="left" unless @shoot==true
+            @marine = Qt::Image.new $player_sprite_left
+            
         end
 
         if @right 
             $x[0] += PLAYER_MOVE_X  unless $x[0]==WIDTH-SPRITE_WIDTH
             @shoot_dir="right" unless @shoot==true 
+            @marine = Qt::Image.new $player_sprite_right
         end
 
         if @up
             $y[0] -= PLAYER_MOVE_Y  unless $y[0]==0
             @shoot_dir="up" unless @shoot==true
+            @marine = Qt::Image.new $player_sprite_up
         end
 
         if @down
             $y[0] += PLAYER_MOVE_Y  unless $y[0]==HEIGHT-SPRITE_HEIGHT
             @shoot_dir="down" unless @shoot==true
+            @marine = Qt::Image.new $player_sprite_down
         end
 
         # collision check, currently against non-hurty static objects (buildings)
