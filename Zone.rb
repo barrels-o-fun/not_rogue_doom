@@ -112,10 +112,7 @@ class Board < Qt::Widget
     
     def move
         if @left
-          if checkCollision==0
             $x[0] -= SQUARE_WIDTH unless $x[0]==0
-          else
-          end
         end
 
         if @right 
@@ -129,7 +126,25 @@ class Board < Qt::Widget
         if @down
             $y[0] += SQUARE_HEIGHT unless $y[0]==HEIGHT-SQUARE_HEIGHT
         end
-        checkCollision
+        # collision check, currently against non-hurty static objects (buildings)
+        if checkCollision==1
+          if @left
+              $x[0] += SQUARE_WIDTH
+          end
+
+          if @right 
+              $x[0] -= SQUARE_WIDTH
+          end
+
+          if @up
+              $y[0] += SQUARE_HEIGHT
+          end
+
+          if @down
+              $y[0] -= SQUARE_HEIGHT
+          end
+        end
+
         print "Marine-x: ", $x[0], " - Marine-y: ", $y[0], "\n"
     end
 
@@ -199,7 +214,7 @@ class Board < Qt::Widget
       # Using @bldg2 for now, eventually, I want to dynamically create bldg vars, or have some way of iterating over all building objects for "painting" 
       @bldg2 = Qt::Image.new "bldg_40x80.png"
       $taken_x[id]=x
-      $taken_y[id=y
+      $taken_y[id]=y
       end
     end
 
