@@ -9,8 +9,11 @@ WIDTH = 640
 HEIGHT = 480
 # SPRITE_HEIGHT = 20
 # SPRITE_WIDTH = 10
-PLAYER_SPRITE= "marine_lolx2.png"
-PEW_PEW_SPRITE = "pewpew.png"
+$player_sprite= "marine_lolx2.png"
+$pewpew_sprite_left = "pewpew_left.png"
+$pewpew_sprite_right = "pewpew_right.png"
+$pewpew_sprite_up = "pewpew_up.png"
+$pewpew_sprite_down = "pewpew_down.png"
 
 # Error tolerance, the larger the number, the larger the arrays for collision
 # ... but, the world objects (buildings etc.) can be more varied in placement
@@ -18,8 +21,7 @@ ERR_TOLERANCE=2
 
 
 # Check game characters height/width
-@marine = Qt::Image.new PLAYER_SPRITE
-@pewpew = Qt::Image.new PEW_PEW_SPRITE
+@marine = Qt::Image.new $player_sprite
 SPRITE_HEIGHT = @marine.height
 SPRITE_WIDTH = @marine.width
 # Set how much player moves, higher numbers, smaller movements
@@ -77,6 +79,7 @@ class Board < Qt::Widget
       @up = false
       @down = false
       @shoot = false
+      @shoot_dir = false
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
@@ -91,8 +94,8 @@ class Board < Qt::Widget
       # This rescue doesn't seem to work - look into at some point? 
       # Paint images must be in initGame for game to function.
       begin
-        @marine = Qt::Image.new PLAYER_SPRITE
-        @pewpew = Qt::Image.new PEW_PEW_SPRITE
+        @marine = Qt::Image.new $player_sprite
+        @pewpew = Qt::Image.new $pewpew_sprite_right
       rescue
         puts "cannot load images"
       end
@@ -165,11 +168,17 @@ class Board < Qt::Widget
                 print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
 
         
-      # Might be useful if I want things moving even when player is not
-      #  For example, a pew pew!!
+      # Shooting logic, make sure the bullet goes the right way!
       if @shoot==true
-      puts "HERE"
-        $x[1]-=SPRITE_WIDTH
+        if @shoot_dir=="left"
+          $x[1]-=SPRITE_WIDTH
+        elsif @shoot_dir=="right"
+          $x[1]+=SPRITE_WIDTH
+        elsif @shoot_dir=="up"
+          $y[1]-=( SPRITE_HEIGHT / 2 )
+        elsif @shoot_dir=="down"
+          $y[1]+=( SPRITE_HEIGHT / 2 )
+        end
       end  
     end
 
@@ -197,18 +206,22 @@ class Board < Qt::Widget
     def move
         if @left
             $x[0] -= PLAYER_MOVE_X  unless $x[0]==0
+            @shoot_dir="left" unless @shoot==true
         end
 
         if @right 
             $x[0] += PLAYER_MOVE_X  unless $x[0]==WIDTH-SPRITE_WIDTH
+            @shoot_dir="right" unless @shoot==true 
         end
 
         if @up
             $y[0] -= PLAYER_MOVE_Y  unless $y[0]==0
+            @shoot_dir="up" unless @shoot==true
         end
 
         if @down
             $y[0] += PLAYER_MOVE_Y  unless $y[0]==HEIGHT-SPRITE_HEIGHT
+            @shoot_dir="down" unless @shoot==true
         end
 
         # collision check, currently against non-hurty static objects (buildings)
@@ -229,12 +242,12 @@ class Board < Qt::Widget
               $y[0] -= PLAYER_MOVE_Y 
           end
         end
-
+=begin
           @left=false
           @right=false
           @up=false
           @down=false
-
+=end
         print "Marine-x: ", $x[0], " - Marine-y: ", $y[0], "\n"
     end
 
@@ -325,8 +338,26 @@ class Board < Qt::Widget
         if key == Qt::Key_Space.value
           if @shoot==false
             @shoot = true
-            $x[1]=$x[0]-SPRITE_WIDTH
-            $y[1]=$y[0]+( SPRITE_HEIGHT / 2 )
+            if @shoot_dir=="left"
+              $x[1]=$x[0]-SPRITE_WIDTH
+              $y[1]=$y[0]+( SPRITE_HEIGHT / 2 )
+              @pewpew = Qt::Image.new $pewpew_sprite_left
+            end
+            if @shoot_dir=="right"
+              $x[1]=$x[0]+SPRITE_WIDTH
+              $y[1]=$y[0]+( SPRITE_HEIGHT / 2 )
+              @pewpew = Qt::Image.new $pewpew_sprite_right
+            end
+            if @shoot_dir=="up"
+              $x[1]=$x[0]+( SPRITE_WIDTH / 2 )
+              $y[1]=$y[0]-( SPRITE_HEIGHT / 8 ) 
+              @pewpew = Qt::Image.new $pewpew_sprite_up
+            end
+            if @shoot_dir=="down"
+              $x[1]=$x[0]+( SPRITE_WIDTH / 2 )
+              $y[1]=$y[0]+( SPRITE_HEIGHT  )
+              @pewpew = Qt::Image.new $pewpew_sprite_down
+            end
           end
         end
         repaint
