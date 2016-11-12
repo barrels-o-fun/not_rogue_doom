@@ -13,12 +13,18 @@ PLAYER_SPRITE= "marine_lolx2.png"
 
 # Error tolerance, the larger the number, the larger the arrays for collision
 # ... but, the world objects (buildings etc.) can be more varied in placement
-ERR_TOLERANCE=4
+# Increasing this, increases chance of sprite going over objects
+ERR_TOLERANCE=2
+
 
 # Check game characters height/width
 @marine = Qt::Image.new PLAYER_SPRITE
 SPRITE_HEIGHT = @marine.height
 SPRITE_WIDTH = @marine.width
+# Set how much player moves, higher numbers, smaller movements
+PLAYER_MOVE_TOLERANCE=1
+PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE
+PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 2
 
 # Debug
 $debug=0
@@ -26,7 +32,6 @@ $debug=0
 # Idea - Have multiple arrays (or hashes?) for different objects.
 #
 # Init global, tracks number of buildings - might not be needed!
-$num_bldgs = 0
 $bldgs = []
 
 # Init array for global occupied squares, array grows as more objects are on screen.
@@ -76,7 +81,7 @@ class Board < Qt::Widget
       @bldg1 = build_house( 120, 120 )
       @bldg2 = build_house( WIDTH-140, HEIGHT-120 )
       @bldg3 = build_house( 200, 280 )
-      @bldg4 = build_house( 300, 248 )
+      @bldg4 = build_house( 300, 248, 1 )
       @bldg5 = build_house( WIDTH-20, HEIGHT-100 )
 
       
@@ -160,37 +165,37 @@ class Board < Qt::Widget
     # Player moves, do they collide?
     def move
         if @left
-            $x[0] -= SPRITE_WIDTH unless $x[0]==0
+            $x[0] -= PLAYER_MOVE_X  unless $x[0]==0
         end
 
         if @right 
-            $x[0] += SPRITE_WIDTH unless $x[0]==WIDTH-SPRITE_WIDTH
+            $x[0] += PLAYER_MOVE_X  unless $x[0]==WIDTH-SPRITE_WIDTH
         end
 
         if @up
-            $y[0] -= SPRITE_HEIGHT unless $y[0]==0
+            $y[0] -= PLAYER_MOVE_Y  unless $y[0]==0
         end
 
         if @down
-            $y[0] += SPRITE_HEIGHT unless $y[0]==HEIGHT-SPRITE_HEIGHT
+            $y[0] += PLAYER_MOVE_Y  unless $y[0]==HEIGHT-SPRITE_HEIGHT
         end
 
         # collision check, currently against non-hurty static objects (buildings)
         if checkCollision==1
           if @left
-              $x[0] += SPRITE_WIDTH
+              $x[0] += PLAYER_MOVE_X
           end
 
           if @right 
-              $x[0] -= SPRITE_WIDTH
+              $x[0] -= PLAYER_MOVE_X
           end
 
           if @up
-              $y[0] += SPRITE_HEIGHT
+              $y[0] += PLAYER_MOVE_Y
           end
 
           if @down
-              $y[0] -= SPRITE_HEIGHT
+              $y[0] -= PLAYER_MOVE_Y 
           end
         end
 
@@ -273,7 +278,7 @@ class Board < Qt::Widget
 
     # Function to place a building (one image only atm), and then populate the x/y arrays to ensure player stops!
     # I expect I will move this to another file at some point
-    def build_house ( x, y, size="default" )
+    def build_house ( x, y, house=0 )
         $build_err_x=0
         $build_err_y=0
         if x % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
@@ -291,10 +296,13 @@ class Board < Qt::Widget
           print "Bad-Y, increasing by ", p, "\n"
           $build_err_y=p
         end
-        # Increase size of $bldgs array
-        $num_bldgs=+1
-        # Count size of bldgs and set id for new building
-        bldg_temp = Qt::Image.new "bldg_40x80.png"
+        # Set building sprite - this will eventually have more options!
+        if house==1
+          bldg_temp = Qt::Image.new "bldg_80x40.png"
+        else
+          bldg_temp = Qt::Image.new "bldg_40x80.png"
+        end
+
         # Logic to populate taken arrays with whole building size
         # Array position X and Y MUST match up for collision code
         p=0
