@@ -10,20 +10,21 @@ HEIGHT = 480
 # SPRITE_HEIGHT = 20
 # SPRITE_WIDTH = 10
 PLAYER_SPRITE= "marine_lolx2.png"
+PEW_PEW_SPRITE = "pewpew.png"
 
 # Error tolerance, the larger the number, the larger the arrays for collision
 # ... but, the world objects (buildings etc.) can be more varied in placement
-# Increasing this, increases chance of sprite going over objects
 ERR_TOLERANCE=2
 
 
 # Check game characters height/width
 @marine = Qt::Image.new PLAYER_SPRITE
+@pewpew = Qt::Image.new PEW_PEW_SPRITE
 SPRITE_HEIGHT = @marine.height
 SPRITE_WIDTH = @marine.width
 # Set how much player moves, higher numbers, smaller movements
 PLAYER_MOVE_TOLERANCE=1
-PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE
+PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE / 2
 PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 2
 
 # Debug
@@ -75,6 +76,7 @@ class Board < Qt::Widget
       @right = false
       @up = false
       @down = false
+      @shoot = false
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
@@ -87,8 +89,10 @@ class Board < Qt::Widget
       
 
       # This rescue doesn't seem to work - look into at some point? 
+      # Paint images must be in initGame for game to function.
       begin
         @marine = Qt::Image.new PLAYER_SPRITE
+        @pewpew = Qt::Image.new PEW_PEW_SPRITE
       rescue
         puts "cannot load images"
       end
@@ -97,11 +101,9 @@ class Board < Qt::Widget
       $x[0]=$player_x
       $y[0]=$player_y
        
+      @timer = Qt::BasicTimer.new 
+      @timer.start(30, self)
    
-      # Might be useful if I want things moving even when player is not
-      #    @timer = Qt::BasicTimer.new 
-      #    @timer.start(500, self)
-        
     end
 
 
@@ -119,6 +121,23 @@ class Board < Qt::Widget
 
         painter.end
     end
+
+    # Keeps things moving even when player is not
+    def timerEvent event
+
+        if @inGame 
+            if @shoot == true
+              if checkCollision(1)==1
+              @shoot = false
+              end
+            end
+        else 
+            @timer.stop
+        end
+ 
+        repaint
+    end
+
 
 
     # Here we draw the objects, currently the arrays are manually set for
@@ -138,8 +157,20 @@ class Board < Qt::Widget
         end  
 
                 painter.drawImage $x[0], $y[0], @marine
+            if @shoot==true
+                puts "shooting"
+                painter.drawImage $x[1], $y[1], @pewpew
+            end
                 print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
                 print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
+
+        
+      # Might be useful if I want things moving even when player is not
+      #  For example, a pew pew!!
+      if @shoot==true
+      puts "HERE"
+        $x[1]-=SPRITE_WIDTH
+      end  
     end
 
 
@@ -181,7 +212,7 @@ class Board < Qt::Widget
         end
 
         # collision check, currently against non-hurty static objects (buildings)
-        if checkCollision==1
+        if checkCollision(0)==1
           if @left
               $x[0] += PLAYER_MOVE_X
           end
@@ -199,30 +230,35 @@ class Board < Qt::Widget
           end
         end
 
+          @left=false
+          @right=false
+          @up=false
+          @down=false
+
         print "Marine-x: ", $x[0], " - Marine-y: ", $y[0], "\n"
     end
 
 
     # Checks if players x,y pos matches any other object.
     # We add (SPRITE_x / 2) to check the MIDDLE of the sprite
-    def checkCollision
+    def checkCollision(x=0)
         hit=0
         p=0
         while p < $static_x.count
-          if $static_x[p]==($x[0] +( SPRITE_WIDTH / 2 ) )
+          if $static_x[p]==($x[x] +( SPRITE_WIDTH / 2 ) )
             print "HIT X! \n"  if $debug >1
             print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 2
-            hit=1 if $static_y[p]==$y[0]
+            hit=1 if $static_y[p]==$y[x]
           end
           p+=1
         end
            
         p=0
         while p < $static_y.count
-          if $static_y[p]==($y[0] + (  SPRITE_HEIGHT / 2 ) )
+          if $static_y[p]==($y[x] + (  SPRITE_HEIGHT / 2 ) )
             print "HIT Y! \n" if $debug >1
             print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 2
-            hit=1 if $static_x[p]==$x[0]
+            hit=1 if $static_x[p]==$x[x]
           end
           p+=1
         end
@@ -230,8 +266,21 @@ class Board < Qt::Widget
           puts "hit!"
           hit=1
         end
-       
-         return hit
+ 
+        # Extra check if not player
+        if x != 0
+            if $x[x] < 0
+              hit=1
+            elsif $x[x] > WIDTH
+              hit=1
+            elsif $y[x] < 0
+              hit=1
+            elsif $y[x] > HEIGHT
+              hit=1
+            end
+        end
+
+        return hit
     end
 
 
@@ -271,6 +320,14 @@ class Board < Qt::Widget
             @up = false
             @down = true
             move
+        end
+
+        if key == Qt::Key_Space.value
+          if @shoot==false
+            @shoot = true
+            $x[1]=$x[0]-SPRITE_WIDTH
+            $y[1]=$y[0]+( SPRITE_HEIGHT / 2 )
+          end
         end
         repaint
     end
