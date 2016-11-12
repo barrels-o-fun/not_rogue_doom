@@ -7,15 +7,18 @@
 # GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
-# SQUARE_HEIGHT = 20
-# SQUARE_WIDTH = 10
+# SPRITE_HEIGHT = 20
+# SPRITE_WIDTH = 10
 PLAYER_SPRITE= "marine_lolx2.png"
 
+# Error tolerance, the larger the number, the larger the arrays for collision
+# ... but, the world objects (buildings etc.) can be more varied in placement
+ERR_TOLERANCE=4
 
 # Check game characters height/width
 @marine = Qt::Image.new PLAYER_SPRITE
-SQUARE_HEIGHT = @marine.height
-SQUARE_WIDTH = @marine.width
+SPRITE_HEIGHT = @marine.height
+SPRITE_WIDTH = @marine.width
 
 # Debug
 $debug=0
@@ -36,12 +39,12 @@ $y = []
 
 # Init player initial position
 $player_x=WIDTH-60
-$player_y=HEIGHT-HEIGHT/2
+$player_y=HEIGHT-HEIGHT/ERR_TOLERANCE
 # Check if player is on the SQUARE grid, else place at 0 for offending axis.
-if $player_x%SQUARE_WIDTH != 0 
+if $player_x%SPRITE_WIDTH != 0 
   $player_x=0 
 end
-if $player_y%SQUARE_HEIGHT != 0 
+if $player_y%SPRITE_HEIGHT != 0 
   $player_y=0 
 end
 
@@ -73,6 +76,8 @@ class Board < Qt::Widget
       @bldg1 = build_house( 120, 120 )
       @bldg2 = build_house( WIDTH-140, HEIGHT-120 )
       @bldg3 = build_house( 200, 280 )
+      @bldg4 = build_house( 300, 248 )
+      @bldg5 = build_house( WIDTH-20, HEIGHT-100 )
 
       
 
@@ -123,13 +128,13 @@ class Board < Qt::Widget
           painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
           # Due to the way we store collison data, this logic ensures each building
           # is placed in the right place
-          q+=($bldgs[p].width/SQUARE_WIDTH)*($bldgs[p].height/SQUARE_HEIGHT)
+          q+=($bldgs[p].width/(SPRITE_WIDTH/ERR_TOLERANCE))*($bldgs[p].height/(SPRITE_HEIGHT/ERR_TOLERANCE))
           p+=1
         end  
 
                 painter.drawImage $x[0], $y[0], @marine
-                print "$static_x: ", $static_x.to_s, "\n" unless $debug < 1
-                print "$static_y: ", $static_y.to_s, "\n" unless $debug < 1
+                print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
+                print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
     end
 
 
@@ -147,45 +152,45 @@ class Board < Qt::Widget
 
         painter.setPen Qt::Color.new Qt::white
         painter.setFont small
-        painter.translate Qt::Point.new w/2, h/2
-        painter.drawText -textWidth/2, 0, msg
+        painter.translate Qt::Point.new w/ERR_TOLERANCE, h/2
+        painter.drawText -textWidth/ERR_TOLERANCE, 0, msg
     end
 
 
     # Player moves, do they collide?
     def move
         if @left
-            $x[0] -= SQUARE_WIDTH unless $x[0]==0
+            $x[0] -= SPRITE_WIDTH unless $x[0]==0
         end
 
         if @right 
-            $x[0] += SQUARE_WIDTH unless $x[0]==WIDTH-SQUARE_WIDTH
+            $x[0] += SPRITE_WIDTH unless $x[0]==WIDTH-SPRITE_WIDTH
         end
 
         if @up
-            $y[0] -= SQUARE_HEIGHT unless $y[0]==0
+            $y[0] -= SPRITE_HEIGHT unless $y[0]==0
         end
 
         if @down
-            $y[0] += SQUARE_HEIGHT unless $y[0]==HEIGHT-SQUARE_HEIGHT
+            $y[0] += SPRITE_HEIGHT unless $y[0]==HEIGHT-SPRITE_HEIGHT
         end
 
         # collision check, currently against non-hurty static objects (buildings)
         if checkCollision==1
           if @left
-              $x[0] += SQUARE_WIDTH
+              $x[0] += SPRITE_WIDTH
           end
 
           if @right 
-              $x[0] -= SQUARE_WIDTH
+              $x[0] -= SPRITE_WIDTH
           end
 
           if @up
-              $y[0] += SQUARE_HEIGHT
+              $y[0] += SPRITE_HEIGHT
           end
 
           if @down
-              $y[0] -= SQUARE_HEIGHT
+              $y[0] -= SPRITE_HEIGHT
           end
         end
 
@@ -194,13 +199,14 @@ class Board < Qt::Widget
 
 
     # Checks if players x,y pos matches any other object.
+    # We add (SPRITE_x / 2) to check the MIDDLE of the sprite
     def checkCollision
         hit=0
         p=0
         while p < $static_x.count
-          if $static_x[p]==$x[0]
-            puts "HIT X!!!!"  unless $debug==0
-            print "$static_y[", p,"] is", $static_y[p] unless $debug < 1
+          if $static_x[p]==($x[0] +( SPRITE_WIDTH / 2 ) )
+            print "HIT X! \n"  if $debug >1
+            print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 2
             hit=1 if $static_y[p]==$y[0]
           end
           p+=1
@@ -208,9 +214,9 @@ class Board < Qt::Widget
            
         p=0
         while p < $static_y.count
-          if $static_y[p]==$y[0]
-            puts "HIT Y!!!!" unless $debug==0
-            print "$static_x[", p,"] is", $static_x[p] unless $debug < 1
+          if $static_y[p]==($y[0] + (  SPRITE_HEIGHT / 2 ) )
+            print "HIT Y! \n" if $debug >1
+            print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 2
             hit=1 if $static_x[p]==$x[0]
           end
           p+=1
@@ -229,6 +235,7 @@ class Board < Qt::Widget
         
         key = event.key
         
+        print "\n\n\n" if $debug > 0 
         if key == Qt::Key_Left.value
             @left = true
             @right = false
@@ -267,6 +274,23 @@ class Board < Qt::Widget
     # Function to place a building (one image only atm), and then populate the x/y arrays to ensure player stops!
     # I expect I will move this to another file at some point
     def build_house ( x, y, size="default" )
+        $build_err_x=0
+        $build_err_y=0
+        if x % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
+          p=0
+          while (x+p) % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
+            p+=1
+          end
+          print "Bad-X, increasing by ", p, "\n"
+          $build_err_x=p
+        elsif y % (SPRITE_HEIGHT/ERR_TOLERANCE) != 0
+          p=0
+          while (y+p) % (SPRITE_HEIGHT/ERR_TOLERANCE) != 0
+            p+=1
+          end
+          print "Bad-Y, increasing by ", p, "\n"
+          $build_err_y=p
+        end
         # Increase size of $bldgs array
         $num_bldgs=+1
         # Count size of bldgs and set id for new building
@@ -280,13 +304,13 @@ class Board < Qt::Widget
         while p < bldg_temp.width
           q=0
           while q < bldg_temp.height
-            $static_x.push x+p
-            print "$static_x: ", $static_x.to_s, "\n" unless $debug < 1
-            $static_y.push y+q
-            print "$static_y: ", $static_y.to_s, "\n" unless $debug < 1
-            q+=SQUARE_HEIGHT
+            $static_x.push x+$build_err_x+p
+            print "$static_x: ", $static_x.to_s, "\n" if $debug >= 5
+            $static_y.push y+$build_err_y+q
+            print "$static_y: ", $static_y.to_s, "\n" if $debug >= 5
+            q+=SPRITE_HEIGHT/ERR_TOLERANCE
           end
-          p+=SQUARE_WIDTH 
+          p+=SPRITE_WIDTH/ERR_TOLERANCE
         end
       $bldgs.push bldg_temp
       return bldg_temp
