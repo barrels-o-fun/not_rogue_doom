@@ -2,74 +2,86 @@
 #  - learning project
 #
 # Author: Barrels-o-fun
+#
 
+# GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
 SQUARE_HEIGHT = 20
 SQUARE_WIDTH = 10
-ALL_SQUARES = WIDTH * HEIGHT / (SQUARE_HEIGHT * SQUARE_WIDTH)
 
 # Idea - Have multiple arrays (or hashes?) for different objects.
-$bldgs = []
+#
+# Init global, tracks number of buildings - might not be needed!
+$num_bldgs = 0
 
-# global occupied squares will contain all possible squares
-$taken_x = [0] * ALL_SQUARES
-$taken_y = [0] * ALL_SQUARES
+# Init array for global occupied squares, array grows as more objects are on screen.
+$taken_x = []
+$taken_y = []
 
+# $x and $y currently only track player, var may be renamed to increase readability.
 $x = []
 $y = []
+
+# Init player initial position
 $player_x=WIDTH-50
 $player_y=HEIGHT-HEIGHT/2
-# Check if player is on the grid, else put it top of screen
+# Check if player is on the SQUARE grid, else place at 0 for offending axis.
+if $player_x%SQUARE_WIDTH != 0 
+  $player_x=0 
+end
 if $player_y%SQUARE_HEIGHT != 0 
   $player_y=0 
- end
+end
 
 class Board < Qt::Widget
 
-    
+  
     def initialize(parent)
-        super(parent)
+      super(parent)
         
-        setFocusPolicy Qt::StrongFocus
-       
-        initGame
+      setFocusPolicy Qt::StrongFocus
+      
+      initGame
     end
 
 
     def initGame
-         
-        @left = false
-        @right = false
-        @up = false
-        @down = false
-        @inGame = true
-        @dots = 0
-      
-        build_house( 2, 100, 200 )
-        # This rescue doesn't seem to work - look into at some point? 
-        begin
-            @marine = Qt::Image.new "marine_lol.png"
-            @bldg1 = Qt::Image.new "bldg_40x80.png"
-        rescue
-            puts "cannot load images"
-        end
+     
+      # Set background colour 
+      setStyleSheet "QWidget { background-color: #000000 }"
 
-        # Place all objects in space
-        $x[0]=$player_x
-        $y[0]=$player_y
-        $taken_x[0]=100
-        $taken_y[0]=200
-        setStyleSheet "QWidget { background-color: #000000 }"
+      # Initialize main game attributes    
+      @left = false
+      @right = false
+      @up = false
+      @down = false
+      @inGame = true
+     
+      # Building my houses outside of begin/end loop (it was there from nibbles.. 
+      @bldg1 = build_house( 200, 100 )
+      @bldg2 = build_house( WIDTH-140, HEIGHT-120 )
+
+      # This rescue doesn't seem to work - look into at some point? 
+      begin
+        @marine = Qt::Image.new "marine_lol.png"
+      rescue
+        puts "cannot load images"
+      end
+
+      # Place player in space
+      $x[0]=$player_x
+      $y[0]=$player_y
        
    
-    # Might be useful
-    #    @timer = Qt::BasicTimer.new 
-    #    @timer.start(500, self)
+      # Might be useful if I want things moving even when player is not
+      #    @timer = Qt::BasicTimer.new 
+      #    @timer.start(500, self)
         
     end
 
 
+    # Simply check if we are @ingame or not.
     def paintEvent event
 
         painter = Qt::Painter.new
@@ -84,13 +96,20 @@ class Board < Qt::Widget
         painter.end
     end
 
+
+    # Here we draw the objects, currently the arrays are manually set for
+    # marine and two buildings.
     def drawObjects painter
 
                 painter.drawImage $x[0], $y[0], @marine
                 painter.drawImage $taken_x[0], $taken_y[0], @bldg1
+                print "$taken_x: ", $taken_x.to_s, "\n"
+                print "$taken_y: ", $taken_y.to_s, "\n"
+                painter.drawImage $taken_x[16], $taken_y[16], @bldg2
     end
 
-    # Keeping this for now
+
+    # Keeping this for now - game over screen
     def gameOver painter
         msg = "Game Over"
         small = Qt::Font.new "Helvetica", 12,
@@ -109,7 +128,7 @@ class Board < Qt::Widget
     end
 
 
-    
+    # Player moves, do they collide?
     def move
         if @left
             $x[0] -= SQUARE_WIDTH unless $x[0]==0
@@ -126,6 +145,7 @@ class Board < Qt::Widget
         if @down
             $y[0] += SQUARE_HEIGHT unless $y[0]==HEIGHT-SQUARE_HEIGHT
         end
+
         # collision check, currently against non-hurty static objects (buildings)
         if checkCollision==1
           if @left
@@ -149,13 +169,29 @@ class Board < Qt::Widget
     end
 
 
+    # Checks if players x,y pos matches any other object.
     def checkCollision
         hit=0
-        hit_x=0
-        hit_y=0
-        $taken_x.each { |i| hit_x=1 if $x[0]==i }
-        $taken_y.each { |i| hit_y=1 if $y[0]==i }
-        if hit_x==1 && hit_y==1
+        p=0
+        while p < $taken_x.count
+          if $taken_x[p]==$x[0]
+            puts "HIT X!!!!"
+            print "$taken_y[", p,"] is", $taken_y[p]
+            hit=1 if $taken_y[p]==$y[0]
+          end
+          p+=1
+        end
+           
+        p=0
+        while p < $taken_y.count
+          if $taken_y[p]==$y[0]
+            puts "HIT Y!!!!"
+            print "$taken_x[", p,"] is", $taken_x[p]
+            hit=1 if $taken_x[p]==$x[0]
+          end
+          p+=1
+        end
+        if hit==1
           puts "hit!"
           hit=1
         end
@@ -164,8 +200,7 @@ class Board < Qt::Widget
     end
 
 
-
-
+    # Player has inputted someting, what was it?
     def keyPressEvent event
         
         key = event.key
@@ -204,18 +239,32 @@ class Board < Qt::Widget
         repaint
     end
 
-    def build_house ( id, x, y, size="default" )
-      # Check existing size of $bldgs array, to ensure we don't overwrite
-      # This assumes ids are coming in sequentially, this is not forced at the moment, so really only good for testing at this point.
-      if $bldgs.count >= id
-        puts "bad choice"
-      else 
-     
-      # Using @bldg2 for now, eventually, I want to dynamically create bldg vars, or have some way of iterating over all building objects for "painting" 
-      @bldg2 = Qt::Image.new "bldg_40x80.png"
-      $taken_x[id]=x
-      $taken_y[id]=y
-      end
+
+    # Function to place a building (one image only atm), and then populate the x/y arrays to ensure player stops!
+    # I expect I will move this to another file at some point
+    def build_house ( x, y, size="default" )
+        # Increase size of $bldgs array
+        $num_bldgs=+1
+        # Count size of bldgs and set id for new building
+        bldg_temp = Qt::Image.new "bldg_40x80.png"
+        # Logic to populate taken arrays with whole building size
+        # Array position X and Y MUST match up for collision code
+        p=0
+        q=0
+        r=$taken_x.count
+        s=$taken_y.count
+        while p < bldg_temp.width
+          q=0
+          while q < bldg_temp.height
+            $taken_x.push x+p
+            print "$taken_x: ", $taken_x.to_s, "\n"
+            $taken_y.push y+q
+            print "$taken_y: ", $taken_y.to_s, "\n"
+            q+=SQUARE_HEIGHT
+          end
+          p+=SQUARE_WIDTH 
+        end
+      return bldg_temp
     end
 
 end
