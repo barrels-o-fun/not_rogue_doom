@@ -9,14 +9,17 @@ require_relative 'build_things'
 # Debug
 $diagnostics=1
 $debug=0
-$one_house=0
-$beasty_hidden=0
-$beasty_inactive=0
+$timer_inactive=1
+$one_house=1
+$beasty_hidden=1
+$beasty_inactive=1
 
 
 # GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
+
+
 # SPRITE_HEIGHT = 20
 # SPRITE_WIDTH = 10
 $player_sprite_left= "marine_lolx2_left.png"
@@ -27,6 +30,12 @@ $pewpew_sprite_left = "pewpew_left.png"
 $pewpew_sprite_right = "pewpew_right.png"
 $pewpew_sprite_up = "pewpew_up.png"
 $pewpew_sprite_down = "pewpew_down.png"
+
+# Shooting arrays and hashes
+$shots_active=[]
+$shots_direc={}
+$shots_counter=0
+
 
 # Error tolerance, the larger the number, the larger the arrays for collision
 # ... but, the world objects (buildings etc.) can be more varied in placement
@@ -52,24 +61,29 @@ $bldgs = []
 $static_x = []
 $static_y = []
 
-# $x and $y currently only track player, var may be renamed to increase readability.
-$x = []
-$y = []
+# $player_x and $player_y track player and player related 
+# e.g. bullets.
+$player_x = []
+$player_y = []
+
+# $beast_x and $beast_y track the beasties
+$beasty_x = []
+$beasty_y = []
 
 # Init player initial position
-$player_x=WIDTH-60
-$player_y=HEIGHT-HEIGHT/ERR_TOLERANCE
+$player_x_pos=WIDTH-60
+$player_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE
 
 # Init beasty initial position
-$beasty_x=20
-$beasty_y=40
+$beasty_x_pos=20
+$beasty_y_pos=40
 
 # Check if player is on the SQUARE grid, else place at 0 for offending axis.
-if $player_x%SPRITE_WIDTH != 0 
-  $player_x=0 
+if $player_x_pos%SPRITE_WIDTH != 0 
+  $player_x_pos=0 
 end
-if $player_y%SPRITE_HEIGHT != 0 
-  $player_y=0 
+if $player_y_pos%SPRITE_HEIGHT != 0 
+  $player_y_pos=0 
 end
 
 class Board < Qt::Widget
@@ -104,10 +118,14 @@ class Board < Qt::Widget
         @bldg2 = BuildThings.build_house( WIDTH-140, HEIGHT-120, 2, "red")
         @bldg3 = BuildThings.build_house( 200, 280, 2)
         @bldg4 = BuildThings.build_house( 300, 248, 2, "blue" )
-        @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
+      #  @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
       end
       
-
+                print "$shots_counter: ", $shots_counter.to_s, "\n"
+                print "$player_x.to_s: ", $player_x.to_s, "\n"
+                print "$player_y.to_s: ", $player_y.to_s, "\n"
+                print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+                print "$shots_direc_values: ", $shots_direc.values, "\n"
       
 
       # This rescue doesn't seem to work - look into at some point? 
@@ -120,18 +138,20 @@ class Board < Qt::Widget
       end
 
       # Place player in space
-      $x[0]=$player_x
-      $y[0]=$player_y
+      $player_x[0]=$player_x_pos
+      $player_y[0]=$player_y_pos
 
       # Place beasty in space
-      $x[2]=$beasty_x
-      $y[2]=$beasty_y
+      $beasty_x[0]=$beasty_x_pos
+      $beasty_y[0]=$beasty_y_pos
        
       # Adding beasty here for now
       @beasty = Qt::Image.new "beasty_lol.png"
 
-      @timer = Qt::BasicTimer.new 
-      @timer.start(30, self)
+      if $timer_inactive==0
+        @timer = Qt::BasicTimer.new 
+        @timer.start(30, self)
+      end
    
     end
 
@@ -154,11 +174,9 @@ class Board < Qt::Widget
     # Keeps things moving even when player is not
     def timerEvent event
 
-        if @shoot == true
-           if checkCollision(1)==1
-           @shoot = false
-           end
-        else 
+        if $shots_active != 0
+           $shots_active.each { |i| checkCollision("player", i)==1 }
+      #          @shoot = false
       #  Keeping here as a note if needing to stop timer
       #      @timer.stop
         end
@@ -184,33 +202,44 @@ class Board < Qt::Widget
           p+=1
         end  
 
-                painter.drawImage $x[0], $y[0], @marine
+                painter.drawImage $player_x[0], $player_y[0], @marine
 
             if @beasty != nil
               if $beasty_hidden==0
-                painter.drawImage $x[2], $y[2], @beasty
+                painter.drawImage $beasty_x[0], $beasty_y[0], @beasty
               end
             end
                 
             if @shoot==true
-                puts "shooting"
-                painter.drawImage $x[1], $y[1], @pewpew
+                print "$shots_counter: ", $shots_counter.to_s, "\n"
+                print "$player_x.to_s: ", $player_x.to_s, "\n"
+                print "$player_y.to_s: ", $player_y.to_s, "\n"
+                print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+                print "$shots_direc_values: ", $shots_direc.values, "\n"
+                if $shots_direc.count != 0
+                  $shots_direc.keys.each { |i| painter.drawImage $player_x[i], $player_y[i], @pewpew }
+                end
             end
                 print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
                 print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
 
         
       # Shooting logic, make sure the bullet goes the right way!
-      if @shoot==true
-        if @shoot_dir=="left"
-          $x[1]-=SPRITE_WIDTH
-        elsif @shoot_dir=="right"
-          $x[1]+=SPRITE_WIDTH
-        elsif @shoot_dir=="up"
-          $y[1]-=( SPRITE_HEIGHT / 2 )
-        elsif @shoot_dir=="down"
-          $y[1]+=( SPRITE_HEIGHT / 2 )
-        end
+      if @shoot==true       
+        p=0
+        while $shots_direc.count < p
+          direction=$shots_direc[p]
+          case direction
+            when "left"
+              $player_x[p]-=SPRITE_WIDTH
+            when "right"
+              $player_x[p]+=SPRITE_WIDTH
+            when "up"
+              $player_y[p]-=( SPRITE_HEIGHT / 2 )
+            when "down"
+              $player_y[1]+=( SPRITE_HEIGHT / 2 )
+          end
+        p+=1
       end  
     end
 
@@ -236,48 +265,48 @@ class Board < Qt::Widget
 
     # Player moves, do they collide?
     def move
+        @shoot_dir="left" if @shoot_dir == nil 
         # Player Moves
         if @left
-            $x[0] -= PLAYER_MOVE_X  unless $x[0]==0
-            @shoot_dir="left" unless @shoot==true
+            $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0]==0
             @marine = Qt::Image.new $player_sprite_left
             
         end
 
         if @right 
-            $x[0] += PLAYER_MOVE_X  unless $x[0]==WIDTH-SPRITE_WIDTH
+            $player_x[0] += PLAYER_MOVE_X  unless $player_x[0]==WIDTH-SPRITE_WIDTH
             @shoot_dir="right" unless @shoot==true 
             @marine = Qt::Image.new $player_sprite_right
         end
 
         if @up
-            $y[0] -= PLAYER_MOVE_Y  unless $y[0]==0
+            $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0]==0
             @shoot_dir="up" unless @shoot==true
             @marine = Qt::Image.new $player_sprite_up
         end
 
         if @down
-            $y[0] += PLAYER_MOVE_Y  unless $y[0]==HEIGHT-SPRITE_HEIGHT
+            $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0]==HEIGHT-SPRITE_HEIGHT
             @shoot_dir="down" unless @shoot==true
             @marine = Qt::Image.new $player_sprite_down
         end
 
         # collision check, currently against non-hurty static objects (buildings)
-        if checkCollision(0)==1
+        if checkCollision("player", 0)==1
           if @left
-              $x[0] += PLAYER_MOVE_X
+              $player_x[0] += PLAYER_MOVE_X
           end
 
           if @right 
-              $x[0] -= PLAYER_MOVE_X
+              $player_x[0] -= PLAYER_MOVE_X
           end
 
           if @up
-              $y[0] += PLAYER_MOVE_Y
+              $player_y[0] += PLAYER_MOVE_Y
           end
 
           if @down
-              $y[0] -= PLAYER_MOVE_Y 
+              $player_y[0] -= PLAYER_MOVE_Y 
           end
         end
 
@@ -285,48 +314,59 @@ class Board < Qt::Widget
         beast_move=rand(8)
           if $beasty_inactive==0
             case beast_move 
-              when (1..2)
-                $x[2] += PLAYER_MOVE_X unless $x[2] > ( WIDTH - ( SPRITE_WIDTH * 1.5 ) ) 
-                $x[2] -= PLAYER_MOVE_X if checkCollision(2)==1
+              when (0..2)
+                $beasty_x[0] += PLAYER_MOVE_X unless $beasty_x[0] > ( WIDTH - ( SPRITE_WIDTH * 1.5 ) ) 
+                $beasty_x[0] -= PLAYER_MOVE_X if checkCollision( "beast", 0 )==1
               when (3..4)
-                $x[2] -= PLAYER_MOVE_X unless $x[2] < ( SPRITE_WIDTH / 1 )
-                $x[2] += PLAYER_MOVE_X if checkCollision(2)==1
+                $beasty_x[0] -= PLAYER_MOVE_X unless $beasty_x[0] < ( SPRITE_WIDTH / 1 )
+                $beasty_x[0] += PLAYER_MOVE_X if checkCollision( "beast", 0 )==1
               when (5..6)
-                $y[2] += PLAYER_MOVE_Y unless $y[2] > ( HEIGHT - ( SPRITE_HEIGHT * 1.5 ) )
-                $x[2] -= PLAYER_MOVE_Y if checkCollision(2)==1
+                $beasty_y[0] += PLAYER_MOVE_Y unless $beasty_y[0] > ( HEIGHT - ( SPRITE_HEIGHT * 1.5 ) )
+                $beasty_y[0] -= PLAYER_MOVE_Y if checkCollision( "beast", 0 )==1
               when (7..8)
-                $y[2] -= PLAYER_MOVE_Y unless $y[2] < ( SPRITE_HEIGHT / 2 )
-                $x[2] += PLAYER_MOVE_Y if checkCollision(2)==1
+                $beasty_y[0] -= PLAYER_MOVE_Y unless $beasty_y[0] < ( SPRITE_HEIGHT / 2 )
+                $beasty_y[0] += PLAYER_MOVE_Y if checkCollision( "beast", 0 )==1
             end
           end
           
         
        # Diagnostics
-      print "Marine-x: ", $x[0], " - Marine-y: ", $y[0], "\n" if $diagnostics==1
-      print "Beasty-x: ", $x[2], " - Beasty-y: ", $y[2], "\n" if $diagnostics==1
+      print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" if $diagnostics==1
+      $shots_direc.keys.each { |i| print "$shots_direc [", i, "]: ", $shots_direc[i], "\n" }
+        if $beasty_hidden==0
+          print "Beasty-x: ", $beasty_x[0], " - Beasty-y: ", $beasty_y[0], "\n" if $diagnostics==1
+        end
     end
 
 
     # Checks if players x,y pos matches any other object.
     # We add (SPRITE_x / 2) to check the MIDDLE of the sprite
-    def checkCollision(x=0)
+    def checkCollision( sprite="player", sprite_num = 0)
+        case sprite
+          when "player"
+            check_x=$player_x
+            check_y=$player_y
+          when "beast"
+            check_x=$beasty_x
+            check_y=$beasty_y
+        end
         hit=0
         p=0
         while p < $static_x.count
-          if $static_x[p]==($x[x] +( SPRITE_WIDTH / 2 ) )
+          if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 ) )
             print "HIT X! \n"  if $debug >5
             print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 5
-            hit=1 if $static_y[p]==$y[x]
+            hit=1 if $static_y[p]==check_y[x]
           end
           p+=1
         end
            
         p=0
         while p < $static_y.count
-          if $static_y[p]==($y[x] + (  SPRITE_HEIGHT / 2 ) )
+          if $static_y[p]==(check_y[sprite_num] + (  SPRITE_HEIGHT / 2 ) )
             print "HIT Y! \n" if $debug >5
             print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 5
-            hit=1 if $static_x[p]==$x[x]
+            hit=1 if $static_x[p]==check_x[x]
           end
           p+=1
         end
@@ -339,14 +379,14 @@ class Board < Qt::Widget
         # - Will need code to figure out if bullet hit beasty
         
         # Extra check if not player, to check if OOB
-        if x != 0
-            if $x[x] < 0
+        if sprite != "player" && sprite_num != 0
+            if check_x[sprite_num] < 0
               hit=1
-            elsif $x[x] > WIDTH
+            elsif check_x[sprite_num] > WIDTH
               hit=1
-            elsif $y[x] < 0
+            elsif check_y[sprite_num] < 0
               hit=1
-            elsif $y[x] > HEIGHT
+            elsif check_y[sprite_num] > HEIGHT
               hit=1
             end
         end
@@ -359,13 +399,14 @@ class Board < Qt::Widget
     def keyPressEvent event
         
         key = event.key
-        
+       
         print "\n\n\n" if $debug > 0 
         if key == Qt::Key_Left.value
             @left = true
             @right = false
             @up = false
             @down = false
+            @shoot_dir = "left"
             move
         end
         
@@ -374,6 +415,7 @@ class Board < Qt::Widget
             @right = true
             @up = false
             @down = false
+            @shoot_dir = "right"
             move
         end
         
@@ -382,6 +424,7 @@ class Board < Qt::Widget
             @right = false
             @up = true
             @down = false
+            @shoot_dir = "up"
             move
         end
         
@@ -390,35 +433,50 @@ class Board < Qt::Widget
             @right = false
             @up = false
             @down = true
+            @shoot_dir = "down"
             move
         end
 
         if key == Qt::Key_Space.value
-          if @shoot==false
             @shoot = true
-            if @shoot_dir=="left"
-              $x[1]=$x[0]-SPRITE_WIDTH
-              $y[1]=$y[0]+( SPRITE_HEIGHT / 2 )
-              @pewpew = Qt::Image.new $pewpew_sprite_left
+            $shots_counter+=1
+            $shots_active.push 1
+            case @shoot_dir
+              when "left"
+                $player_x[$shots_counter]=$player_x[0]-SPRITE_WIDTH
+                $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT / 2 )
+#                @pewpew = Qt::Image.new $pewpew_sprite_left
+                $shots_direc[$shots_counter]="left"
+              when "right"
+                $player_x[$shots_counter]=$player_x[0]+SPRITE_WIDTH
+                $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT / 2 )
+                @pewpew = Qt::Image.new $pewpew_sprite_right
+                $shots_direc[$shots_counter]="right"
+              when "up"
+                $player_x[$shots_counter]=$player_x[0]+( SPRITE_WIDTH / 2 )
+                $player_y[$shots_counter]=$player_y[0]-( SPRITE_HEIGHT / 8 ) 
+                @pewpew = Qt::Image.new $pewpew_sprite_up
+                $shots_direc[$shots_counter]="up"
+              when "down"
+                $player_x[$shots_counter]=$player_x[0]+( SPRITE_WIDTH / 2 )
+                $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT  )
+                @pewpew = Qt::Image.new $pewpew_sprite_down
+                $shots_direc[$shots_counter]="down"
             end
-            if @shoot_dir=="right"
-              $x[1]=$x[0]+SPRITE_WIDTH
-              $y[1]=$y[0]+( SPRITE_HEIGHT / 2 )
-              @pewpew = Qt::Image.new $pewpew_sprite_right
-            end
-            if @shoot_dir=="up"
-              $x[1]=$x[0]+( SPRITE_WIDTH / 2 )
-              $y[1]=$y[0]-( SPRITE_HEIGHT / 8 ) 
-              @pewpew = Qt::Image.new $pewpew_sprite_up
-            end
-            if @shoot_dir=="down"
-              $x[1]=$x[0]+( SPRITE_WIDTH / 2 )
-              $y[1]=$y[0]+( SPRITE_HEIGHT  )
-              @pewpew = Qt::Image.new $pewpew_sprite_down
-            end
-          end
+            puts $shots_direc[$shots_counter]
+            print "Just shot: \n"
+                print "@shoot_dir: ", @shoot_dir, "\n"
+                print "$shots_counter: ", $shots_counter.to_s, "\n"
+                print "$player_x.to_s: ", $player_x.to_s, "\n"
+                print "$player_y.to_s: ", $player_y.to_s, "\n"
+                print "$shots_active: ", $shots_active.to_s, "\n"
+                print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+                print "$shots_direc_values: ", $shots_direc.values, "\n"
+            print "\n\n"
+
         end
+
         repaint
     end
-
+end
 end
