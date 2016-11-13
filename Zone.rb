@@ -9,9 +9,9 @@ require_relative 'build_things'
 # Debug
 $diagnostics=1
 $debug=0
-$one_house=1
-$beasty_hidden=1
-$beasty_inactive=1
+$one_house=0
+$beasty_hidden=0
+$beasty_inactive=0
 
 
 # GAME CONSTANTS
