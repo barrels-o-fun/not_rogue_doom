@@ -6,6 +6,14 @@
 
 require_relative 'build_things'
 
+# Debug
+$diagnostics=1
+$debug=0
+$one_house=1
+$beasty_hidden=1
+$beasty_inactive=1
+
+
 # GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
@@ -34,9 +42,6 @@ PLAYER_MOVE_TOLERANCE=1
 PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE / 2
 PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 2
 
-# Debug
-$diagnostics=1
-$debug=3
 
 # Idea - Have multiple arrays (or hashes?) for different objects.
 #
@@ -90,15 +95,17 @@ class Board < Qt::Widget
       @up = false
       @down = false
       @shoot = false
-      @shoot_dir = false
+      @shoot_dir = "left"
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
       @bldg1 = BuildThings.build_house( 40, 40, 2, "green" )
-      @bldg2 = BuildThings.build_house( WIDTH-140, HEIGHT-120, 2, "red")
-      @bldg3 = BuildThings.build_house( 200, 280, 2)
-      @bldg4 = BuildThings.build_house( 300, 248, 2, "blue" )
-#      @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
+      if $one_house==0
+        @bldg2 = BuildThings.build_house( WIDTH-140, HEIGHT-120, 2, "red")
+        @bldg3 = BuildThings.build_house( 200, 280, 2)
+        @bldg4 = BuildThings.build_house( 300, 248, 2, "blue" )
+        @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
+      end
       
 
       
@@ -121,7 +128,7 @@ class Board < Qt::Widget
       $y[2]=$beasty_y
        
       # Adding beasty here for now
-        @beasty = Qt::Image.new "beasty_lol.png"
+      @beasty = Qt::Image.new "beasty_lol.png"
 
       @timer = Qt::BasicTimer.new 
       @timer.start(30, self)
@@ -152,7 +159,8 @@ class Board < Qt::Widget
            @shoot = false
            end
         else 
-            @timer.stop
+      #  Keeping here as a note if needing to stop timer
+      #      @timer.stop
         end
  
         repaint
@@ -179,7 +187,9 @@ class Board < Qt::Widget
                 painter.drawImage $x[0], $y[0], @marine
 
             if @beasty != nil
+              if $beasty_hidden==0
                 painter.drawImage $x[2], $y[2], @beasty
+              end
             end
                 
             if @shoot==true
@@ -271,22 +281,23 @@ class Board < Qt::Widget
           end
         end
 
-       # Move beasty (random direction)
-         beast_move=rand(8)
-          puts beast_move
-          case beast_move
-            when (1..2)
-              $x[2] += PLAYER_MOVE_X unless $x[2] > ( WIDTH - ( SPRITE_WIDTH * 1.5 ) ) 
-              $x[2] -= PLAYER_MOVE_X if checkCollision(2)==1
-            when (3..4)
-              $x[2] -= PLAYER_MOVE_X unless $x[2] < ( SPRITE_WIDTH / 1 )
-              $x[2] += PLAYER_MOVE_X if checkCollision(2)==1
-            when (5..6)
-              $y[2] += PLAYER_MOVE_Y unless $y[2] > ( HEIGHT - ( SPRITE_HEIGHT * 1.5 ) )
-              $x[2] -= PLAYER_MOVE_Y if checkCollision(2)==1
-            when (7..8)
-              $y[2] -= PLAYER_MOVE_Y unless $y[2] < ( SPRITE_HEIGHT / 2 )
-              $x[2] += PLAYER_MOVE_Y if checkCollision(2)==1
+        # Move beasty (random direction)
+        beast_move=rand(8)
+          if $beasty_inactive==0
+            case beast_move 
+              when (1..2)
+                $x[2] += PLAYER_MOVE_X unless $x[2] > ( WIDTH - ( SPRITE_WIDTH * 1.5 ) ) 
+                $x[2] -= PLAYER_MOVE_X if checkCollision(2)==1
+              when (3..4)
+                $x[2] -= PLAYER_MOVE_X unless $x[2] < ( SPRITE_WIDTH / 1 )
+                $x[2] += PLAYER_MOVE_X if checkCollision(2)==1
+              when (5..6)
+                $y[2] += PLAYER_MOVE_Y unless $y[2] > ( HEIGHT - ( SPRITE_HEIGHT * 1.5 ) )
+                $x[2] -= PLAYER_MOVE_Y if checkCollision(2)==1
+              when (7..8)
+                $y[2] -= PLAYER_MOVE_Y unless $y[2] < ( SPRITE_HEIGHT / 2 )
+                $x[2] += PLAYER_MOVE_Y if checkCollision(2)==1
+            end
           end
           
         
