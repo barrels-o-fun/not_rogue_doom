@@ -24,12 +24,12 @@ module BuildThings
           build_err_y=p
         end
         # Set building sprites - this will eventually have more options!
-        case
-          when house==0
+        case house
+          when 0
           bldg_temp = Qt::Image.new "bldg_40x80.png"
-          when house==1
+          when 1
             bldg_temp = Qt::Image.new "bldg_80x40.png"
-          when house==2
+          when 2
             bldg_temp = Qt::Image.new "bldg_80x160_green.png" if color=="green"
             bldg_temp = Qt::Image.new "bldg_80x160_blue.png" if color=="blue"
             bldg_temp = Qt::Image.new "bldg_80x160_red.png" if color=="red"

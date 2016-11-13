@@ -35,7 +35,8 @@ PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE / 2
 PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 2
 
 # Debug
-$debug=0
+$diagnostics=1
+$debug=3
 
 # Idea - Have multiple arrays (or hashes?) for different objects.
 #
@@ -53,6 +54,11 @@ $y = []
 # Init player initial position
 $player_x=WIDTH-60
 $player_y=HEIGHT-HEIGHT/ERR_TOLERANCE
+
+# Init beasty initial position
+$beasty_x=20
+$beasty_y=40
+
 # Check if player is on the SQUARE grid, else place at 0 for offending axis.
 if $player_x%SPRITE_WIDTH != 0 
   $player_x=0 
@@ -88,11 +94,11 @@ class Board < Qt::Widget
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
-      @bldg1 = BuildThings.build_house( 120, 120 )
+      @bldg1 = BuildThings.build_house( 40, 40, 2, "green" )
       @bldg2 = BuildThings.build_house( WIDTH-140, HEIGHT-120, 2, "red")
       @bldg3 = BuildThings.build_house( 200, 280, 2)
       @bldg4 = BuildThings.build_house( 300, 248, 2, "blue" )
-      @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
+#      @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
       
 
       
@@ -109,7 +115,14 @@ class Board < Qt::Widget
       # Place player in space
       $x[0]=$player_x
       $y[0]=$player_y
+
+      # Place beasty in space
+      $x[2]=$beasty_x
+      $y[2]=$beasty_y
        
+      # Adding beasty here for now
+        @beasty = Qt::Image.new "beasty_lol.png"
+
       @timer = Qt::BasicTimer.new 
       @timer.start(30, self)
    
@@ -134,12 +147,10 @@ class Board < Qt::Widget
     # Keeps things moving even when player is not
     def timerEvent event
 
-        if @inGame 
-            if @shoot == true
-              if checkCollision(1)==1
-              @shoot = false
-              end
-            end
+        if @shoot == true
+           if checkCollision(1)==1
+           @shoot = false
+           end
         else 
             @timer.stop
         end
@@ -166,6 +177,11 @@ class Board < Qt::Widget
         end  
 
                 painter.drawImage $x[0], $y[0], @marine
+
+            if @beasty != nil
+                painter.drawImage $x[2], $y[2], @beasty
+            end
+                
             if @shoot==true
                 puts "shooting"
                 painter.drawImage $x[1], $y[1], @pewpew
@@ -210,6 +226,7 @@ class Board < Qt::Widget
 
     # Player moves, do they collide?
     def move
+        # Player Moves
         if @left
             $x[0] -= PLAYER_MOVE_X  unless $x[0]==0
             @shoot_dir="left" unless @shoot==true
@@ -253,13 +270,29 @@ class Board < Qt::Widget
               $y[0] -= PLAYER_MOVE_Y 
           end
         end
-=begin
-          @left=false
-          @right=false
-          @up=false
-          @down=false
-=end
-        print "Marine-x: ", $x[0], " - Marine-y: ", $y[0], "\n"
+
+       # Move beasty (random direction)
+         beast_move=rand(8)
+          puts beast_move
+          case beast_move
+            when (1..2)
+              $x[2] += PLAYER_MOVE_X unless $x[2] > ( WIDTH - ( SPRITE_WIDTH * 1.5 ) ) 
+              $x[2] -= PLAYER_MOVE_X if checkCollision(2)==1
+            when (3..4)
+              $x[2] -= PLAYER_MOVE_X unless $x[2] < ( SPRITE_WIDTH / 1 )
+              $x[2] += PLAYER_MOVE_X if checkCollision(2)==1
+            when (5..6)
+              $y[2] += PLAYER_MOVE_Y unless $y[2] > ( HEIGHT - ( SPRITE_HEIGHT * 1.5 ) )
+              $x[2] -= PLAYER_MOVE_Y if checkCollision(2)==1
+            when (7..8)
+              $y[2] -= PLAYER_MOVE_Y unless $y[2] < ( SPRITE_HEIGHT / 2 )
+              $x[2] += PLAYER_MOVE_Y if checkCollision(2)==1
+          end
+          
+        
+       # Diagnostics
+      print "Marine-x: ", $x[0], " - Marine-y: ", $y[0], "\n" if $diagnostics==1
+      print "Beasty-x: ", $x[2], " - Beasty-y: ", $y[2], "\n" if $diagnostics==1
     end
 
 
@@ -270,8 +303,8 @@ class Board < Qt::Widget
         p=0
         while p < $static_x.count
           if $static_x[p]==($x[x] +( SPRITE_WIDTH / 2 ) )
-            print "HIT X! \n"  if $debug >1
-            print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 2
+            print "HIT X! \n"  if $debug >5
+            print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 5
             hit=1 if $static_y[p]==$y[x]
           end
           p+=1
@@ -280,8 +313,8 @@ class Board < Qt::Widget
         p=0
         while p < $static_y.count
           if $static_y[p]==($y[x] + (  SPRITE_HEIGHT / 2 ) )
-            print "HIT Y! \n" if $debug >1
-            print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 2
+            print "HIT Y! \n" if $debug >5
+            print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 5
             hit=1 if $static_x[p]==$x[x]
           end
           p+=1
@@ -290,8 +323,11 @@ class Board < Qt::Widget
           puts "hit!"
           hit=1
         end
- 
-        # Extra check if not player
+        
+        # Extra check if bullet
+        # - Will need code to figure out if bullet hit beasty
+        
+        # Extra check if not player, to check if OOB
         if x != 0
             if $x[x] < 0
               hit=1
@@ -373,57 +409,5 @@ class Board < Qt::Widget
         end
         repaint
     end
-
-
-=begin
-    # Function to place a building (one image only atm), and then populate the x/y 
-    # arrays to ensure player stops!
-    # I expect I will move this to another file at some point
-    def build_house ( x, y, house=0 )
-        $build_err_x=0
-        $build_err_y=0
-        if x % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
-          p=0
-          while (x+p) % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
-            p+=1
-          end
-          print "Bad-X, increasing by ", p, "\n"
-          $build_err_x=p
-        elsif y % (SPRITE_HEIGHT/ERR_TOLERANCE) != 0
-          p=0
-          while (y+p) % (SPRITE_HEIGHT/ERR_TOLERANCE) != 0
-            p+=1
-          end
-          print "Bad-Y, increasing by ", p, "\n"
-          $build_err_y=p
-        end
-        # Set building sprite - this will eventually have more options!
-        if house==1
-          bldg_temp = Qt::Image.new "bldg_80x40.png"
-        else
-          bldg_temp = Qt::Image.new "bldg_40x80.png"
-        end
-
-        # Logic to populate taken arrays with whole building size
-        # Array position X and Y MUST match up for collision code
-        p=0
-        q=0
-        r=$static_x.count
-        s=$static_y.count
-        while p < bldg_temp.width
-          q=0
-          while q < bldg_temp.height
-            $static_x.push x+$build_err_x+p
-            print "$static_x: ", $static_x.to_s, "\n" if $debug >= 5
-            $static_y.push y+$build_err_y+q
-            print "$static_y: ", $static_y.to_s, "\n" if $debug >= 5
-            q+=SPRITE_HEIGHT/ERR_TOLERANCE
-          end
-          p+=SPRITE_WIDTH/ERR_TOLERANCE
-        end
-      $bldgs.push bldg_temp
-      return bldg_temp
-    end
-=end
 
 end
