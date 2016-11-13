@@ -8,6 +8,7 @@ require_relative 'build_things'
 
 # Debug
 $diagnostics=1
+$diagnostics_shooting=0
 $debug=0
 $timer_inactive=0
 $one_house=0
@@ -36,6 +37,8 @@ $pewpew_sprites["left"]= Qt::Image.new $pewpew_sprite_left
 $pewpew_sprites["right"]= Qt::Image.new $pewpew_sprite_right
 $pewpew_sprites["up"]= Qt::Image.new $pewpew_sprite_up
 $pewpew_sprites["down"]= Qt::Image.new $pewpew_sprite_down
+
+@pewpew_sound = Qt::Sound.new "pewpew.wav"
 
 # Shooting arrays and hashes
 $shots_active=[]
@@ -127,18 +130,14 @@ class Board < Qt::Widget
       #  @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
       end
       
-                print "$shots_counter: ", $shots_counter.to_s, "\n"
-                print "$player_x.to_s: ", $player_x.to_s, "\n"
-                print "$player_y.to_s: ", $player_y.to_s, "\n"
-                print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-                print "$shots_direc_values: ", $shots_direc.values, "\n"
-      
 
       # This rescue doesn't seem to work - look into at some point? 
       # Paint images must be in initGame for game to function.
       begin
         @marine = Qt::Image.new $player_sprite_left
         @pewpew = Qt::Image.new $pewpew_sprite_left
+        @pewpew_sound = Qt::Sound.new "Pew-pew-pew.mp3"
+        
       rescue
         puts "cannot load images"
       end
@@ -199,13 +198,14 @@ class Board < Qt::Widget
             end
               p+=1
         end
-        print "$shots_direc.keys: ", $shots_direc.keys.to_s, "\n"
         $shots_direc.keys.each { |i|
           if checkCollision("player", i)==1 
             $player_x[i]=0
             $player_y[i]=0
             $shots_direc[i]=nil
-            $shots_counter-=1
+            # I was using this to keep the $shots_direc hash and $playerx/y arrays small
+            # but it caused bullets to disappear.
+            # $shots_counter-=1
           end
         }
       #          @shoot = false
@@ -246,13 +246,8 @@ class Board < Qt::Widget
           end
         end
        
-        
-
-          print "$shots_counter: ", $shots_counter.to_s, "\n"
-          print "$player_x.to_s: ", $player_x.to_s, "\n"
-          print "$player_y.to_s: ", $player_y.to_s, "\n"
-          print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-          print "$shots_direc_values: ", $shots_direc.values, "\n\n\n"
+        # Paint bullets
+        # (We don't currently set @shoot to false, only to true after first hit)
         if @shoot==true
           if $shots_direc.count != 0
              $shots_direc.keys.each {
@@ -352,10 +347,9 @@ class Board < Qt::Widget
         
        # Diagnostics
       print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" if $diagnostics==1
-      $shots_direc.keys.each { |i| print "$shots_direc [", i, "]: ", $shots_direc[i], "\n" }
-        if $beasty_hidden==0
-          print "Beasty-x: ", $beasty_x[0], " - Beasty-y: ", $beasty_y[0], "\n" if $diagnostics==1
-        end
+      if $beasty_hidden==0
+        print "Beasty-x: ", $beasty_x[0], " - Beasty-y: ", $beasty_y[0], "\n" if $diagnostics==1
+      end
     end
 
 
@@ -400,7 +394,6 @@ class Board < Qt::Widget
         
         # Extra check if not player, to check if OOB
         if sprite_num != 0 || sprite != "player"
-            puts "HERE"
             if check_x[sprite_num] < 0
               hit=1
             elsif check_x[sprite_num] > WIDTH
@@ -459,6 +452,15 @@ class Board < Qt::Widget
         end
 
         if key == Qt::Key_Space.value
+            
+            # Is there a way to get Qt to play sounds, I suspect so...
+            # Qt::Sound.emit "pewpew.wav"
+            # @pewpew_sound.play
+            #
+            # For now I will use this suggestion, 
+            # Sounds are on top of each other, not ideal!!
+            # pid = fork{ exec 'mpg123','-q', 'pew.mp3' }
+            
             @shoot = true
             @left = false
             @right = false
@@ -488,16 +490,18 @@ class Board < Qt::Widget
                 @pewpew = Qt::Image.new $pewpew_sprite_down
                 $shots_direc[$shots_counter]="down"
             end
-            puts $shots_direc[$shots_counter]
-            print "Just shot: \n"
-                print "@shoot_dir: ", @shoot_dir, "\n"
-                print "$shots_counter: ", $shots_counter.to_s, "\n"
-                print "$player_x.to_s: ", $player_x.to_s, "\n"
-                print "$player_y.to_s: ", $player_y.to_s, "\n"
-                print "$shots_active: ", $shots_active.to_s, "\n"
-                print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-                print "$shots_direc_values: ", $shots_direc.values, "\n"
-            print "\n\n"
+            if $diagnostics_shooting==1
+              puts $shots_direc[$shots_counter]
+              print "Just shot: \n"
+              print "@shoot_dir: ", @shoot_dir, "\n"
+              print "$shots_counter: ", $shots_counter.to_s, "\n"
+              print "$player_x.to_s: ", $player_x.to_s, "\n"
+              print "$player_y.to_s: ", $player_y.to_s, "\n"
+              print "$shots_active: ", $shots_active.to_s, "\n"
+              print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+              print "$shots_direc_values: ", $shots_direc.values, "\n"
+              print "\n\n"
+            end
             move
         end
 
