@@ -4,6 +4,8 @@
 # Author: Barrels-o-fun
 #
 
+require_relative 'build_things'
+
 # GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
@@ -37,7 +39,7 @@ $debug=0
 
 # Idea - Have multiple arrays (or hashes?) for different objects.
 #
-# Init global, tracks number of buildings
+# Init global, stores Images and tracks number of buildings
 $bldgs = []
 
 # Init array for global occupied squares, array grows as more objects are on screen.
@@ -86,11 +88,12 @@ class Board < Qt::Widget
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
-      @bldg1 = build_house( 120, 120 )
-      @bldg2 = build_house( WIDTH-140, HEIGHT-120 )
-      @bldg3 = build_house( 200, 280 )
-      @bldg4 = build_house( 300, 248, 1 )
-      @bldg5 = build_house( WIDTH-20, HEIGHT-100 )
+      @bldg1 = BuildThings.build_house( 120, 120 )
+      @bldg2 = BuildThings.build_house( WIDTH-140, HEIGHT-120, 2, "red")
+      @bldg3 = BuildThings.build_house( 200, 280, 2)
+      @bldg4 = BuildThings.build_house( 300, 248, 2, "blue" )
+      @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
+      
 
       
 
@@ -372,7 +375,9 @@ class Board < Qt::Widget
     end
 
 
-    # Function to place a building (one image only atm), and then populate the x/y arrays to ensure player stops!
+=begin
+    # Function to place a building (one image only atm), and then populate the x/y 
+    # arrays to ensure player stops!
     # I expect I will move this to another file at some point
     def build_house ( x, y, house=0 )
         $build_err_x=0
@@ -419,5 +424,6 @@ class Board < Qt::Widget
       $bldgs.push bldg_temp
       return bldg_temp
     end
+=end
 
 end
