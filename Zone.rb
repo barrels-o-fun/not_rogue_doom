@@ -9,10 +9,10 @@ require_relative 'build_things'
 # Debug
 $diagnostics=1
 $debug=0
-$timer_inactive=1
-$one_house=1
-$beasty_hidden=1
-$beasty_inactive=1
+$timer_inactive=0
+$one_house=0
+$beasty_hidden=0
+$beasty_inactive=0
 
 
 # GAME CONSTANTS
@@ -30,6 +30,12 @@ $pewpew_sprite_left = "pewpew_left.png"
 $pewpew_sprite_right = "pewpew_right.png"
 $pewpew_sprite_up = "pewpew_up.png"
 $pewpew_sprite_down = "pewpew_down.png"
+
+$pewpew_sprites={}
+$pewpew_sprites["left"]= Qt::Image.new $pewpew_sprite_left
+$pewpew_sprites["right"]= Qt::Image.new $pewpew_sprite_right
+$pewpew_sprites["up"]= Qt::Image.new $pewpew_sprite_up
+$pewpew_sprites["down"]= Qt::Image.new $pewpew_sprite_down
 
 # Shooting arrays and hashes
 $shots_active=[]
@@ -150,7 +156,7 @@ class Board < Qt::Widget
 
       if $timer_inactive==0
         @timer = Qt::BasicTimer.new 
-        @timer.start(30, self)
+        @timer.start(80, self)
       end
    
     end
@@ -175,7 +181,33 @@ class Board < Qt::Widget
     def timerEvent event
 
         if $shots_active != 0
-           $shots_active.each { |i| checkCollision("player", i)==1 }
+        
+        # Figure out shots and place them
+        p=1
+        # Using p-1 here as hash stores from 1, array from 0
+        while $shots_direc.keys.count > p-1
+          direction=$shots_direc[p]
+          case direction
+            when "left"
+              $player_x[p]-=SPRITE_WIDTH
+            when "right"
+              $player_x[p]+=SPRITE_WIDTH
+            when "up"
+              $player_y[p]-=( SPRITE_HEIGHT / 2 )
+            when "down"
+              $player_y[p]+=( SPRITE_HEIGHT / 2 )
+            end
+              p+=1
+        end
+        print "$shots_direc.keys: ", $shots_direc.keys.to_s, "\n"
+        $shots_direc.keys.each { |i|
+          if checkCollision("player", i)==1 
+            $player_x[i]=0
+            $player_y[i]=0
+            $shots_direc[i]=nil
+            $shots_counter-=1
+          end
+        }
       #          @shoot = false
       #  Keeping here as a note if needing to stop timer
       #      @timer.stop
@@ -201,46 +233,34 @@ class Board < Qt::Widget
           q+=($bldgs[p].width/(SPRITE_WIDTH/ERR_TOLERANCE))*($bldgs[p].height/(SPRITE_HEIGHT/ERR_TOLERANCE))
           p+=1
         end  
+ 
 
-                painter.drawImage $player_x[0], $player_y[0], @marine
-
-            if @beasty != nil
-              if $beasty_hidden==0
-                painter.drawImage $beasty_x[0], $beasty_y[0], @beasty
-              end
-            end
-                
-            if @shoot==true
-                print "$shots_counter: ", $shots_counter.to_s, "\n"
-                print "$player_x.to_s: ", $player_x.to_s, "\n"
-                print "$player_y.to_s: ", $player_y.to_s, "\n"
-                print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-                print "$shots_direc_values: ", $shots_direc.values, "\n"
-                if $shots_direc.count != 0
-                  $shots_direc.keys.each { |i| painter.drawImage $player_x[i], $player_y[i], @pewpew }
-                end
-            end
-                print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
-                print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
+        # Paint player
+        painter.drawImage $player_x[0], $player_y[0], @marine
 
         
-      # Shooting logic, make sure the bullet goes the right way!
-      if @shoot==true       
-        p=0
-        while $shots_direc.count < p
-          direction=$shots_direc[p]
-          case direction
-            when "left"
-              $player_x[p]-=SPRITE_WIDTH
-            when "right"
-              $player_x[p]+=SPRITE_WIDTH
-            when "up"
-              $player_y[p]-=( SPRITE_HEIGHT / 2 )
-            when "down"
-              $player_y[1]+=( SPRITE_HEIGHT / 2 )
+        # Paint beasty
+        if @beasty != nil
+          if $beasty_hidden==0
+            painter.drawImage $beasty_x[0], $beasty_y[0], @beasty
           end
-        p+=1
-      end  
+        end
+       
+        
+
+          print "$shots_counter: ", $shots_counter.to_s, "\n"
+          print "$player_x.to_s: ", $player_x.to_s, "\n"
+          print "$player_y.to_s: ", $player_y.to_s, "\n"
+          print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+          print "$shots_direc_values: ", $shots_direc.values, "\n\n\n"
+        if @shoot==true
+          if $shots_direc.count != 0
+             $shots_direc.keys.each {
+                |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]]  unless $shots_direc[i]==nil
+                 }
+          end
+                print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
+                print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
     end
 
 
@@ -379,7 +399,8 @@ class Board < Qt::Widget
         # - Will need code to figure out if bullet hit beasty
         
         # Extra check if not player, to check if OOB
-        if sprite != "player" && sprite_num != 0
+        if sprite_num != 0 || sprite != "player"
+            puts "HERE"
             if check_x[sprite_num] < 0
               hit=1
             elsif check_x[sprite_num] > WIDTH
@@ -439,13 +460,17 @@ class Board < Qt::Widget
 
         if key == Qt::Key_Space.value
             @shoot = true
+            @left = false
+            @right = false
+            @up = false
+            @down = false
             $shots_counter+=1
             $shots_active.push 1
             case @shoot_dir
               when "left"
                 $player_x[$shots_counter]=$player_x[0]-SPRITE_WIDTH
                 $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT / 2 )
-#                @pewpew = Qt::Image.new $pewpew_sprite_left
+                @pewpew = Qt::Image.new $pewpew_sprite_left
                 $shots_direc[$shots_counter]="left"
               when "right"
                 $player_x[$shots_counter]=$player_x[0]+SPRITE_WIDTH
@@ -473,7 +498,7 @@ class Board < Qt::Widget
                 print "$shots_direc_keys: ", $shots_direc.keys, "\n"
                 print "$shots_direc_values: ", $shots_direc.values, "\n"
             print "\n\n"
-
+            move
         end
 
         repaint
