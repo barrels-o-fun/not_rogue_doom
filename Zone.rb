@@ -20,24 +20,29 @@ $beasty_inactive=0
 WIDTH = 640
 HEIGHT = 480
 
+# Timer delay to change timing of different objects (currently the backdrop flashing)
+$set_delay=20
+$timer_delay_count=0
 
-# SPRITE_HEIGHT = 20
-# SPRITE_WIDTH = 10
-$player_sprite_left= "marine_lolx2_left.png"
-$player_sprite_right= "marine_lolx2_right.png"
-$player_sprite_up= "marine_lolx2_up.png"
-$player_sprite_down= "marine_lolx2_down.png"
-$pewpew_sprite_left = "pewpew_left.png"
-$pewpew_sprite_right = "pewpew_right.png"
-$pewpew_sprite_up = "pewpew_up.png"
-$pewpew_sprite_down = "pewpew_down.png"
+# Images used in game
+$player_sprites={}
+$player_sprites["left"] = Qt::Image.new "marine_lolx2_left.png"
+$player_sprites["right"] = Qt::Image.new "marine_lolx2_right.png"
+$player_sprites["up"] = Qt::Image.new "marine_lolx2_up.png"
+$player_sprites["down"] = Qt::Image.new "marine_lolx2_down.png"
 
 $pewpew_sprites={}
-$pewpew_sprites["left"]= Qt::Image.new $pewpew_sprite_left
-$pewpew_sprites["right"]= Qt::Image.new $pewpew_sprite_right
-$pewpew_sprites["up"]= Qt::Image.new $pewpew_sprite_up
-$pewpew_sprites["down"]= Qt::Image.new $pewpew_sprite_down
+$pewpew_sprites["left"] = Qt::Image.new "pewpew_left.png"
+$pewpew_sprites["right"] = Qt::Image.new "pewpew_right.png"
+$pewpew_sprites["up"] = Qt::Image.new "pewpew_up.png"
+$pewpew_sprites["down"] = Qt::Image.new "pewpew_down.png"
 
+
+$back_drops={}
+$back_drops["default"] = Qt::Image.new "bldg_80x40.png"
+
+
+# Sounds (not working right now, not sure how to play sounds from Qt
 @pewpew_sound = Qt::Sound.new "pewpew.wav"
 
 # Shooting arrays and hashes
@@ -52,7 +57,7 @@ ERR_TOLERANCE=2
 
 
 # Check game characters height/width
-@marine = Qt::Image.new $player_sprite_left
+@marine = $player_sprites["left"]
 SPRITE_HEIGHT = @marine.height
 SPRITE_WIDTH = @marine.width
 # Set how much player moves, higher numbers, smaller movements
@@ -122,19 +127,27 @@ class Board < Qt::Widget
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
-      @bldg1 = BuildThings.build_house( 40, 40, 2, "green" )
+      # BuildThings.build_house ( pos_x, pos_y, color="green", house="default", width=80, height=160 )
+      #
+      # I did not expect this to work, thought I would need @bldgx per building.
+      # ...but multiple images exist in this one attribute.
+      # I guess it is because they are built in order when initGame runs?
+      #
+      # This does make it easier to dynamically create buildings!
+      @bldg = BuildThings.build_house( 40, 40, "red", "custom", 200, 120 )
       if $one_house==0
-        @bldg2 = BuildThings.build_house( WIDTH-140, HEIGHT-120, 2, "red")
-        @bldg3 = BuildThings.build_house( 200, 280, 2)
-        @bldg4 = BuildThings.build_house( 300, 248, 2, "blue" )
-      #  @bldg5 = BuildThings.build_house( WIDTH-20, HEIGHT-100 )
+        @bldg = BuildThings.build_house( WIDTH-200, HEIGHT-120, "red" )
+        @bldg = BuildThings.build_house( 200, 280, "green", "custom", 160, 80 )
+        @bldg = BuildThings.build_house( 300, 248, "blue", "custom", 80, 160  )
+        @bldg = BuildThings.build_house( WIDTH-20, HEIGHT-180, "green", "custom", 160, 80 )
       end
       
 
       # This rescue doesn't seem to work - look into at some point? 
       # Paint images must be in initGame for game to function.
       begin
-        @marine = Qt::Image.new $player_sprite_left
+        @backdrop = Qt::Image.new $back_drops["default"]
+        @marine = $player_sprites["left"]
         @pewpew = Qt::Image.new $pewpew_sprite_left
         @pewpew_sound = Qt::Sound.new "Pew-pew-pew.mp3"
         
@@ -156,6 +169,8 @@ class Board < Qt::Widget
       if $timer_inactive==0
         @timer = Qt::BasicTimer.new 
         @timer.start(80, self)
+        @timer2 = Qt::BasicTimer.new 
+        @timer2.start(5, self)
       end
    
     end
@@ -178,7 +193,7 @@ class Board < Qt::Widget
 
     # Keeps things moving even when player is not
     def timerEvent event
-
+        $timer_delay_count+=1
         if $shots_active != 0
         
         # Figure out shots and place them
@@ -212,8 +227,11 @@ class Board < Qt::Widget
       #  Keeping here as a note if needing to stop timer
       #      @timer.stop
         end
+      @back_drop_now.invertPixels if $timer_delay_count==$set_delay
  
         repaint
+
+      $timer_delay_count=0 unless $timer_delay_count<$set_delay
     end
 
 
@@ -222,7 +240,14 @@ class Board < Qt::Widget
     # marine and two buildings.
     def drawObjects painter
 
-
+      # Paint backdrop
+      @back_drop_now = $back_drops["default"]
+      @back_drop_conv=@back_drop_now.scaled(WIDTH, HEIGHT)
+      if $timer_delay_count==0
+        painter.drawImage 0, 0, @back_drop_conv
+      else
+        painter.drawImage 10, 10, @back_drop_conv  
+      end
         # Paint buildings
         p=0
         q=0
@@ -284,26 +309,26 @@ class Board < Qt::Widget
         # Player Moves
         if @left
             $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0]==0
-            @marine = Qt::Image.new $player_sprite_left
+            @marine = $player_sprites["left"]
             
         end
 
         if @right 
             $player_x[0] += PLAYER_MOVE_X  unless $player_x[0]==WIDTH-SPRITE_WIDTH
             @shoot_dir="right" unless @shoot==true 
-            @marine = Qt::Image.new $player_sprite_right
+            @marine = $player_sprites["right"]
         end
 
         if @up
             $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0]==0
             @shoot_dir="up" unless @shoot==true
-            @marine = Qt::Image.new $player_sprite_up
+            @marine = $player_sprites["up"]
         end
 
         if @down
             $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0]==HEIGHT-SPRITE_HEIGHT
             @shoot_dir="down" unless @shoot==true
-            @marine = Qt::Image.new $player_sprite_down
+            @marine = $player_sprites["down"]
         end
 
         # collision check, currently against non-hurty static objects (buildings)
