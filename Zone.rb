@@ -8,7 +8,7 @@ require_relative 'build_things'
 
 # Debug
 $diagnostics=1
-$diagnostics_shooting=1
+$diagnostics_shooting=0
 $debug=0
 $timer_inactive=0
 $one_house=0
@@ -140,6 +140,7 @@ class Board < Qt::Widget
       # I did not expect this to work, thought I would need @bldgx per building.
       # ...but multiple images exist in this one attribute.
       # I guess it is because they are built in order when initGame runs?
+      #  Nope!!! It's because you store the buildings in an array!
       #
       # This does make it easier to dynamically create buildings!
       @bldg = BuildThings.build_house( 90, 40, "red", "custom", 200, 120 )
@@ -297,46 +298,45 @@ class Board < Qt::Widget
 
 
 
-    # Here we draw the objects, currently the arrays are manually set for
-    # marine and two buildings.
+    # Here we draw the objects, 
     def drawObjects painter
 
       # Paint backdrop 
       painter.drawImage $back_drop_x, $back_drop_y, @back_drop
         
       # Paint buildings
-        p=0
-        q=0
-        while p < $bldgs.count
-          painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
-          # Due to the way we store collison data, this logic ensures each building
-          # is placed in the right place
-          q+=($bldgs[p].width/(SPRITE_WIDTH/ERR_TOLERANCE))*($bldgs[p].height/(SPRITE_HEIGHT/ERR_TOLERANCE))
-          p+=1
-        end  
+      p=0
+      q=0
+      while p < $bldgs.count
+        painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
+        # Due to the way we store collison data, this logic ensures each building
+        # is placed in the right place
+        q+=($bldgs[p].width/(SPRITE_WIDTH/ERR_TOLERANCE))*($bldgs[p].height/(SPRITE_HEIGHT/ERR_TOLERANCE))
+        p+=1
+      end  
  
 
-        # Paint player
-        painter.drawImage $player_x[0], $player_y[0], @marine
+      # Paint player
+      painter.drawImage $player_x[0], $player_y[0], @marine
 
         
-        # Paint beasty
-        if @beasty != nil
-          if $beasty_hidden==0
-            painter.drawImage $beasty_x[0], $beasty_y[0], @beasty
-          end
+      # Paint beasty
+      if @beasty != nil
+        if $beasty_hidden==0
+          painter.drawImage $beasty_x[0], $beasty_y[0], @beasty
         end
-       
-        # Paint bullets
-        # (We don't currently set @shoot to false, only to true after first hit)
-        if @shoot==true
-          if $shots_direc.count != 0
-             $shots_direc.keys.each {
-                |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]]  unless $shots_direc[i]==nil
-                 }
-          end
-                print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
-                print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
+      end
+     
+      # Paint bullets
+      # (We don't currently set @shoot to false, only to true after first hit)
+      if @shoot==true
+        if $shots_direc.count != 0
+          $shots_direc.keys.each {
+            |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]]  unless $shots_direc[i]==nil
+            }
+        end
+      print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
+      print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
     end
 
 
