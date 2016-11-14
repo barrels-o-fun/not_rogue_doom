@@ -21,8 +21,13 @@ WIDTH = 640
 HEIGHT = 480
 
 # Timer delay to change timing of different objects (currently the backdrop flashing)
-$set_delay=20
-$timer_delay_count=0
+$game_timer=80
+$acid_level=2
+$unsettling=4
+$unsettling_offset=5
+# Init variables, do not change these
+$acid_timer=0
+$unsettling_timer=0
 
 # Images used in game
 $player_sprites={}
@@ -40,6 +45,9 @@ $pewpew_sprites["down"] = Qt::Image.new "pewpew_down.png"
 
 $back_drops={}
 $back_drops["default"] = Qt::Image.new "bldg_80x40.png"
+$back_drop_x=0
+$back_drop_y=0
+
 
 
 # Sounds (not working right now, not sure how to play sounds from Qt
@@ -134,7 +142,7 @@ class Board < Qt::Widget
       # I guess it is because they are built in order when initGame runs?
       #
       # This does make it easier to dynamically create buildings!
-      @bldg = BuildThings.build_house( 40, 40, "red", "custom", 200, 120 )
+      @bldg = BuildThings.build_house( 90, 40, "red", "custom", 200, 120 )
       if $one_house==0
         @bldg = BuildThings.build_house( WIDTH-200, HEIGHT-120, "red" )
         @bldg = BuildThings.build_house( 200, 280, "green", "custom", 160, 80 )
@@ -146,7 +154,8 @@ class Board < Qt::Widget
       # This rescue doesn't seem to work - look into at some point? 
       # Paint images must be in initGame for game to function.
       begin
-        @backdrop = Qt::Image.new $back_drops["default"]
+        @back_drop_pre_scale = $back_drops["default"]
+        @back_drop=@back_drop_pre_scale.scaled(WIDTH, HEIGHT)
         @marine = $player_sprites["left"]
         @pewpew = Qt::Image.new $pewpew_sprite_left
         @pewpew_sound = Qt::Sound.new "Pew-pew-pew.mp3"
@@ -168,7 +177,7 @@ class Board < Qt::Widget
 
       if $timer_inactive==0
         @timer = Qt::BasicTimer.new 
-        @timer.start(80, self)
+        @timer.start($game_timer, self)
       end
 
 
@@ -231,45 +240,59 @@ class Board < Qt::Widget
 
     # Keeps things moving even when player is not
     def timerEvent event
-        $timer_delay_count+=1
+
+        # Check if shot sprites are on screen
+        # figure out shots and place them
         if $shots_active != 0
-        
-        # Figure out shots and place them
-        p=1
-        # Using p-1 here as hash stores from 1, array from 0
-        while $shots_direc.keys.count > p-1
-          direction=$shots_direc[p]
-          case direction
-            when "left"
-              $player_x[p]-=SPRITE_WIDTH
-            when "right"
-              $player_x[p]+=SPRITE_WIDTH
-            when "up"
-              $player_y[p]-=( SPRITE_HEIGHT / 2 )
-            when "down"
-              $player_y[p]+=( SPRITE_HEIGHT / 2 )
-            end
+          p=1
+          # Using p-1 here as hash stores from 1, array from 0
+          while $shots_direc.keys.count > p-1
+            direction=$shots_direc[p]
+              case direction
+                when "left"
+                  $player_x[p]-=SPRITE_WIDTH
+                when "right"
+                  $player_x[p]+=SPRITE_WIDTH
+                when "up"
+                  $player_y[p]-=( SPRITE_HEIGHT / 2 )
+                when "down"
+                  $player_y[p]+=( SPRITE_HEIGHT / 2 )
+              end
               p+=1
-        end
-        $shots_direc.keys.each { |i|
-          if checkCollision("player", i)==1 
-            $player_x[i]=0
-            $player_y[i]=0
-            $shots_direc[i]=nil
-            # I was using this to keep the $shots_direc hash and $playerx/y arrays small
-            # but it caused bullets to disappear.
-            # $shots_counter-=1
           end
-        }
-      #          @shoot = false
+          # Check if bullets have collided (currently only works on static images)
+          $shots_direc.keys.each { |i|
+            if checkCollision("player", i)==1 
+              $player_x[i]=0
+              $player_y[i]=0
+              $shots_direc[i]=nil
+            end
+          }
+      
+
+        end
+
+      # Acid Level
+      $acid_timer+=1
+      @back_drop.invertPixels if $acid_timer==$acid_level
+      $acid_timer=0 unless $acid_timer < $acid_level
+ 
+      # Unsettling backdrop
+      $unsettling_timer+=1
+      if $unsettling_timer==$unsettling
+        if $back_drop_x < 0
+          $back_drop_x+=$unsettling_offset
+          $back_drop_y+=$unsettling_offset
+        elsif
+          $back_drop_x-=$unsettling_offset
+          $back_drop_y-=$unsettling_offset
+        end
+        $unsettling_timer=0 unless $unsettling_timer < $unsettling
+      end
+         repaint
+
       #  Keeping here as a note if needing to stop timer
       #      @timer.stop
-        end
-      @back_drop_now.invertPixels if $timer_delay_count==$set_delay
- 
-        repaint
-
-      $timer_delay_count=0 unless $timer_delay_count<$set_delay
     end
 
 
@@ -278,15 +301,10 @@ class Board < Qt::Widget
     # marine and two buildings.
     def drawObjects painter
 
-      # Paint backdrop
-      @back_drop_now = $back_drops["default"]
-      @back_drop_conv=@back_drop_now.scaled(WIDTH, HEIGHT)
-      if $timer_delay_count==0
-        painter.drawImage 0, 0, @back_drop_conv
-      else
-        painter.drawImage 10, 10, @back_drop_conv  
-      end
-        # Paint buildings
+      # Paint backdrop 
+      painter.drawImage $back_drop_x, $back_drop_y, @back_drop
+        
+      # Paint buildings
         p=0
         q=0
         while p < $bldgs.count
