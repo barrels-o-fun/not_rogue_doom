@@ -8,7 +8,7 @@ require_relative 'build_things'
 
 # Debug
 $diagnostics=1
-$diagnostics_shooting=0
+$diagnostics_shooting=1
 $debug=0
 $timer_inactive=0
 $one_house=0
@@ -169,9 +169,9 @@ class Board < Qt::Widget
       if $timer_inactive==0
         @timer = Qt::BasicTimer.new 
         @timer.start(80, self)
-        @timer2 = Qt::BasicTimer.new 
-        @timer2.start(5, self)
       end
+
+
    
     end
 
@@ -184,6 +184,44 @@ class Board < Qt::Widget
 
         if @inGame
             drawObjects painter
+        if $diagnostics_shooting==1
+          puts $shots_direc[$shots_counter]
+          print "Just shot: \n"
+          print "@shoot_dir: ", @shoot_dir, "\n"
+          print "$shots_counter: ", $shots_counter.to_s, "\n"
+          print "$player_x.to_s: ", $player_x.to_s, "\n"
+          print "$player_y.to_s: ", $player_y.to_s, "\n"
+          print "$shots_active: ", $shots_active.to_s, "\n"
+          print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+          print "$shots_direc_values: ", $shots_direc.values, "\n"
+          print "\n\n"
+        end
+
+        # check if any shots in play, or clear arrays/hashes/counters 
+        if $shots_direc.value?("left")==true
+        else          
+          if $shots_direc.value?("right")==true
+          else
+            if $shots_direc.value?("up")==true
+            else
+              if $shots_direc.value?("down")==true
+             else
+                $shots_direc={}
+                $shots_counter=0
+                $shots_active=[]
+                # Required as we track shots and player positions in one array
+                player_at_x=$player_x[0]
+                player_at_y=$player_y[0]
+                $player_x=[]
+                $player_y=[]
+                $player_x[0]=player_at_x
+                $player_y[0]=player_at_y
+             end
+           end
+         end
+       end
+
+    
         else 
             gameOver painter
         end
@@ -514,18 +552,6 @@ class Board < Qt::Widget
                 $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT  )
                 @pewpew = Qt::Image.new $pewpew_sprite_down
                 $shots_direc[$shots_counter]="down"
-            end
-            if $diagnostics_shooting==1
-              puts $shots_direc[$shots_counter]
-              print "Just shot: \n"
-              print "@shoot_dir: ", @shoot_dir, "\n"
-              print "$shots_counter: ", $shots_counter.to_s, "\n"
-              print "$player_x.to_s: ", $player_x.to_s, "\n"
-              print "$player_y.to_s: ", $player_y.to_s, "\n"
-              print "$shots_active: ", $shots_active.to_s, "\n"
-              print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-              print "$shots_direc_values: ", $shots_direc.values, "\n"
-              print "\n\n"
             end
             move
         end
