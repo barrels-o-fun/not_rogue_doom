@@ -21,7 +21,7 @@ WIDTH = 640
 HEIGHT = 480
 
 # Timer delay to change timing of different objects (currently the backdrop flashing)
-$game_timer=80
+$game_timer=60
 $acid_level=2
 $unsettling=4
 $unsettling_offset=5
@@ -535,12 +535,17 @@ class Board < Qt::Widget
         if key == Qt::Key_Space.value
             
             # Is there a way to get Qt to play sounds, I suspect so...
-            # Qt::Sound.emit "pewpew.wav"
-            # @pewpew_sound.play
+            # I'm not sure if the sound if being sent or not
+            # I have found it requires /dev/dsp on linux
+            # ... which meant installing/loading alsa-oss libraries
             #
-            # For now I will use this suggestion, 
-            # Sounds are on top of each other, not ideal!!
-            # pid = fork{ exec 'mpg123','-q', 'pew.mp3' }
+            # @pewpew_sound = Qt::Sound.new "pewpew.wav"
+            # @pewpew_sound.play
+            # This shows the sound is loaded
+            # - puts @pewpew_sound.to_s
+            #
+            # For now I will use this suggestion, good enough to get the feel!
+            pid = fork{ exec 'aplay', 'pewpew.wav' }
             
             @shoot = true
             @left = false
