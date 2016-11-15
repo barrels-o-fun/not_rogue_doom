@@ -59,9 +59,7 @@ module BuildThings
           q=0
           while q < bldg_temp.height
             $static_x.push pos_x+build_err_x+p
-            print "$static_x: ", $static_x.to_s, "\n" if $debug >= 5
             $static_y.push pos_y+build_err_y+q
-            print "$static_y: ", $static_y.to_s, "\n" if $debug >= 5
             q+=SPRITE_HEIGHT/ERR_TOLERANCE
           end
           p+=SPRITE_WIDTH/ERR_TOLERANCE

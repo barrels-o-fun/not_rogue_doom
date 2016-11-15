@@ -8,7 +8,7 @@
 #  Key points
 #
 #  Player (and their shots) stored in player_x[] : player_y[]
-#  Beastys stored in beasty_x[] : player_y[]
+#  Beasts stored in $beast_x[] : beast_y[]
 #
 
 require_relative 'build_things'
@@ -17,11 +17,12 @@ require_relative 'build_things'
 $diagnostics=1
 $diagnostics_shooting_timer=0
 $diagnostics_shooting=0
+$static_arrays_mon=false
 $debug=0
 $timer_inactive=0
 $one_house=0
-$beasty_hidden=0
-$beasty_inactive=0
+$beast_hidden=0
+$beast_inactive=0
 ###
 
 ### GAME CONSTANTS
@@ -55,17 +56,25 @@ $static_y = []
 $player_x = []
 $player_y = []
 
+# Beast hash
+$beasts=[]
+$beast_life=[]
+$beasts[0]=0
+$beast_life[0]=5
+$beasts[1]=1
+$beast_life[1]=5
+
 # $beast_x and $beast_y track the beasties.
-$beasty_x = []
-$beasty_y = []
+$beast_x = []
+$beast_y = []
 
 # Init player initial position
 $player_x_pos=WIDTH-60
 $player_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE
 
 # Init beasty initial position (mainly for testing)
-$beasty_x_pos=WIDTH-100
-$beasty_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE - 80
+$beast_x_pos=WIDTH-100
+$beast_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE - 80
 
 
 
@@ -105,7 +114,6 @@ $shots_direc={}
 $shots_counter=0
 
 
-
 # Check game characters height/width
 @marine = $player_sprites["left"]
 SPRITE_HEIGHT = @marine.height
@@ -113,7 +121,12 @@ SPRITE_WIDTH = @marine.width
 # Set how much player moves, higher numbers, smaller movements
 PLAYER_MOVE_TOLERANCE=1
 PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE / 2
-PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 2
+
+## Trying this out, keeps the Marine "on the spot" more but slow does vertical movements
+# Not sure which I prefer...
+PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 4
+PERIMETER_RIGHT=WIDTH-SPRITE_WIDTH
+PERIMETER_BOTTOM=HEIGHT-SPRITE_HEIGHT
 
 # Check if player is on the SQUARE grid, else place at 0 for offending axis.
 # - For testing
@@ -151,6 +164,7 @@ class Board < Qt::Widget
       @shoot = false
       @just_shot = false
       @shoot_dir = "left"
+      @prev_shoot_dir = "left"
       @inGame = true
      
       # Building my houses outside of begin/end loop (it was there from nibbles.. 
@@ -170,6 +184,8 @@ class Board < Qt::Widget
         @bldg = BuildThings.build_house( WIDTH-20, HEIGHT-180, "green", "custom", 160, 80 )
       end
       
+      print "$static_x: ", $static_x.to_s, "\n" if $static_arrays_mon==true
+      print "$static_y: ", $static_y.to_s, "\n" if $static_arrays_mon==true
 
       # Paint images must be in initGame for game to function.
       begin
@@ -201,8 +217,20 @@ class Board < Qt::Widget
       $player_y[0]=$player_y_pos
 
       # Place beasty in space
-      $beasty_x[0]=$beasty_x_pos
-      $beasty_y[0]=$beasty_y_pos
+      $beast_x[0]=$beast_x_pos
+      $beast_y[0]=$beast_y_pos
+      $beast_x[1]=40
+      $beast_y[1]=40
+      
+      # Diagnostics
+      if $diagnostics > 1
+          print "=== GAME_START ===\n"
+          print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
+          if $beast_hidden!=1
+            $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
+          end
+        print "---------------- \n"
+        end
        
       # Adding beasty here for now
       @beasty = Qt::Image.new "beasty_lol.png"
@@ -352,10 +380,12 @@ class Board < Qt::Widget
       painter.drawImage $player_x[0], $player_y[0], @marine unless @just_shot==true && @shoot_dir=="up"
       
       # Paint beasty
-      if @beasty != nil
-        if $beasty_hidden==0
-          painter.drawImage $beasty_x[0], $beasty_y[0], @beasty
-        end
+      if $beast_hidden != 1
+        $beasts.each { |active_beast|
+          if $beast_life[active_beast] > 0
+            painter.drawImage $beast_x[active_beast], $beast_y[active_beast], @beasty
+          end
+        }
       end
      
       # Paint bullets
@@ -366,8 +396,6 @@ class Board < Qt::Widget
             |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]]  unless $shots_direc[i]==nil
             }
         end
-      print "$static_x: ", $static_x.to_s, "\n" if $debug > 5
-      print "$static_y: ", $static_y.to_s, "\n" if $debug > 5 
       
     
       # Paint shoting animation (if just_shot), has to be after bullet painting to prevent overlay
@@ -419,29 +447,46 @@ class Board < Qt::Widget
 
     # Player moves, do they collide?
     def move
+
+        # Diagnostics
+        if $diagnostics > 1
+          print "=== NEW TURN ===\n"
+          print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
+          if $beast_hidden!=1
+            $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
+          end
+        print "---------------- \n"
+        end
+
         @shoot_dir="left" if @shoot_dir == nil 
         # Player Moves
         if @left
-            $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0]==0
+            $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0] == 0 #  || @prev_shoot_dir != "left"
+            @shoot_dir="right" unless @shoot==true 
+            @prev_shoot_dir="left"
             @marine = $player_sprites["left"]
             
         end
 
         if @right 
-            $player_x[0] += PLAYER_MOVE_X  unless $player_x[0]==WIDTH-SPRITE_WIDTH
+            $player_x[0] += PLAYER_MOVE_X  unless $player_x[0] == PERIMETER_RIGHT #  || @prev_shoot_dir != "right"
             @shoot_dir="right" unless @shoot==true 
+            @prev_shoot_dir="right"
             @marine = $player_sprites["right"]
         end
 
         if @up
-            $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0]==0
+            puts @prev_shoot_dir
+            $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0] == 0 #  || @prev_shoot_dir != "up"
             @shoot_dir="up" unless @shoot==true
+            @prev_shoot_dir="up"
             @marine = $player_sprites["up"]
         end
 
         if @down
-            $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0]==HEIGHT-SPRITE_HEIGHT
+            $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0] == PERIMETER_BOTTOM #  || @prev_shoot_dir != "down"
             @shoot_dir="down" unless @shoot==true
+            @prev_shoot_dir="down"
             @marine = $player_sprites["down"]
         end
 
@@ -465,100 +510,143 @@ class Board < Qt::Widget
         end
 
         # Move beasty (random direction)
-        beast_move=rand(8)
-          if $beasty_inactive==0
-            case beast_move 
-              when (0..2)
-                $beasty_x[0] += PLAYER_MOVE_X unless $beasty_x[0] > ( WIDTH - ( SPRITE_WIDTH * 1.5 ) ) 
-                $beasty_x[0] -= PLAYER_MOVE_X if checkCollision( "beast", 0 )==1
-              when (3..4)
-                $beasty_x[0] -= PLAYER_MOVE_X unless $beasty_x[0] < ( SPRITE_WIDTH / 1 )
-                $beasty_x[0] += PLAYER_MOVE_X if checkCollision( "beast", 0 )==1
-              when (5..6)
-                $beasty_y[0] += PLAYER_MOVE_Y unless $beasty_y[0] > ( HEIGHT - ( SPRITE_HEIGHT * 1.5 ) )
-                $beasty_y[0] -= PLAYER_MOVE_Y if checkCollision( "beast", 0 )==1
-              when (7..8)
-                $beasty_y[0] -= PLAYER_MOVE_Y unless $beasty_y[0] < ( SPRITE_HEIGHT / 2 )
-                $beasty_y[0] += PLAYER_MOVE_Y if checkCollision( "beast", 0 )==1
+        # Needs more logic, beasts get stuck, also don't react to player... yet ; )
+        puts $beasts.to_s
+        $beasts.each { |i|
+          if $beast_life[i] > 0
+            beast_move=rand(7)
+            print "Beast", i, "rand: ", beast_move, "\n"
+            if $beast_inactive==0
+              case beast_move 
+                when (0..1)  # left
+                  $beast_x[i] -= PLAYER_MOVE_X unless $beast_x[i] == 0
+                  if checkCollision( "beast", i ) ==1 
+                     print "Beast Collided when going left \n"
+                     $beast_x[i] += PLAYER_MOVE_X
+                  end
+               when (2..3)  # right
+                 $beast_x[i] += PLAYER_MOVE_X unless $beast_x[i] == PERIMETER_RIGHT
+                   if checkCollision( "beast", i ) ==1 
+                     print "Beast Collided when going right \n"
+                     $beast_x[i] -= PLAYER_MOVE_X
+                   end
+               when (4..5) # up
+                 $beast_y[i] -= PLAYER_MOVE_Y unless $beast_y[i] == 0
+                 if checkCollision( "beast", i ) ==1 
+                   print "Beast Collided when going up \n"
+                   $beast_y[i] += PLAYER_MOVE_Y
+                 end
+               when (6..7) # down
+                 $beast_y[i] += PLAYER_MOVE_Y unless $beast_y[i] == PERIMETER_BOTTOM
+                 if checkCollision( "beast", i ) ==1 
+                   $beast_y[i] -= PLAYER_MOVE_Y 
+                   print "Beast Collided when going down \n"
+                 end
+              end
             end
           end
-          
+        }
         
-       # Diagnostics
-      print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" if $diagnostics==1
-      if $beasty_hidden==0
-        print "Beasty-x: ", $beasty_x[0], " - Beasty-y: ", $beasty_y[0], "\n" if $diagnostics==1
-      end
+        # Diagnostics
+        if $diagnostics > 1
+          print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
+          if $beast_hidden!=1
+            $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
+          end
+        print "---------------- \n"
+        end
     end
 
 
     # Checks if players x,y pos matches any other solid object.
     # We add (SPRITE_x / 2) to check the MIDDLE of the sprite
     def checkCollision( sprite="player", sprite_num = 0)
+        
         case sprite
           when "player"
             check_x=$player_x
             check_y=$player_y
           when "beast"
-            check_x=$beasty_x
-            check_y=$beasty_y
+            check_x=$beast_x
+            check_y=$beast_y
         end
+    #      print sprite, sprite_num, " is ", check_y[sprite_num]  ,"\n"
+        bullet_modifier_y=0
         hit=0
         p=0
+        #Check if sprite has hit static object, check X and corresponding Y
         while p < $static_x.count
-          if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 ) )
-            print "HIT Solid X! \n"  if $debug > 5
-            print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 6
-            hit=1 if $static_y[p]==check_y[x]
+          if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 )  )
+            print sprite, sprite_num, "HIT Solid X, $static_y[", p,"] is ", $static_y[p], "\n" if $debug > 6
+            hit=1 if $static_y[p]==check_y[sprite_num]
+            if hit==1
+              print "I'm HERERERERERE"
+            end
           end
           p+=1
         end
-           
-        p=0
-        while p < $static_y.count
-          if $static_y[p]==(check_y[sprite_num] + (  SPRITE_HEIGHT / 2 ) )
-            print "HIT Solid Y! \n" if $debug > 5
-            print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 6
-            hit=1 if $static_x[p]==check_x[x]
+
+        # We also check Y and corresponding X, this is required.
+        # Hopefully one day we can do this better :-)
+        q=0
+        bullet_modifier_y=15 if sprite=="player" && sprite_num <= 0
+        while q < $static_y.count
+          if $static_y[q]==(check_y[sprite_num] + ( SPRITE_HEIGHT / 2 ) + bullet_modifier_y )
+            print sprite, sprite_num, "HIT Solid Y, $static_x[", q,"] is ", $static_x[q], "\n" if $debug > 6
+            hit=1 if $static_x[q]==check_x[sprite_num]
           end
-          p+=1
+          q+=1
         end
+
         if hit==1
-          print sprite, sprite_num, " hit solid object!\n" if $diagnostics==1
+          print "************", sprite, sprite_num, " hit solid object! ******* \n\n\n\n\n" if $diagnostics>=1
           hit=1
           return hit
         end
        
-        # Extra check if bullet
-        # Requires additional function to process when hit
-        # for now though, the bullet disappears from screen when beast hit
-        #
+        #### Bullet Check ####
+        # Records beast hits, and reduces beast life
         if sprite=="player" && sprite_num != 0 
-          hit_beast=0
           p=0
-          while p < $beasty_x.count
-            if $beasty_x[p]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
+          while p < $beasts.count
+            if $beast_x[p]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
               print "HIT Beast X! \n"  if $debug >4
-              print "$beasty_y[", p, "] is ", $beasty_y[p], "\n" if $debug > 5
-              if $beasty_y[p]==check_y[sprite_num]+5
+              print "$beast_y[", p, "] is ", $beast_y[p], "\n" if $debug > 5
+              if $beast_y[p]==check_y[sprite_num]+5
                 hit=1
+                beast_hit=$beasts[p]
+                $beast_life[p]-=1
+                if $beast_life[p]<=0
+                  $beast_x[p]=-100
+                  $beast_y[p]=-100
+                end
+                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", $beast_life[beast_hit], "\n" if $diagnostics>=1
               end
             end
             p+=1
+            return hit if hit == 1
           end
-           
+          
+          # As before we check X then Y above, and follow it with Y and X 
           q=0
-          while q < $beasty_y.count
-            if $beasty_y[q]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 ) +5 )
+          while q < $beast_y.count
+            if $beast_y[q]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 ) +5 )
               print "HIT Beast Y! \n" if $debug >4
-              print "$beasty_x[", q, "] is ", $beasty_x[q], "\n" if $debug > 5
-              if $beasty_x[q]==check_x[sprite_num]+5
+              print "$beast_x[", q, "] is ", $beast_x[q], "\n" if $debug > 5
+              if $beast_x[q]==check_x[sprite_num]+5
                 hit=1
+                beast_hit=$beasts[q]
+                $beast_life[q]-=1
+                if $beast_life[q]<=0
+                  $beast_x[q]=-100
+                  $beast_y[q]=-100
+                end
+                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", $beast_life[beast_hit], "\n" if $diagnostics>=1
               end
             end
             q+=1
             print "Player [", sprite_num, "] hit beasty[", p, "]\n\n" if hit==1 && $diagnostics==1
-            return hit
+            return hit if hit == 1
           end
         end  
         
