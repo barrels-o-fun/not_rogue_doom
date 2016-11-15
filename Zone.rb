@@ -3,10 +3,17 @@
 #
 # Author: Barrels-o-fun
 #
+# Created: Nov 2016
+#   
+#  Key points
+#
+#  Player (and their shots) stored in player_x[] : player_y[]
+#  Beastys stored in beasty_x[] : player_y[]
+#
 
 require_relative 'build_things'
 
-# Debug
+### Debug
 $diagnostics=1
 $diagnostics_shooting=0
 $debug=0
@@ -14,13 +21,18 @@ $timer_inactive=0
 $one_house=0
 $beasty_hidden=0
 $beasty_inactive=0
+###
 
-
-# GAME CONSTANTS
+### GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
+# Error tolerance, the larger the number, the larger the arrays for collision
+# ... but, the world objects (buildings etc.) can be more varied in placement
+ERR_TOLERANCE=2
+###
 
-# Timer delay to change timing of different objects (currently the backdrop flashing)
+#
+## Timer delay to change timing of different objects (currently the backdrop flashing)
 $game_timer=60
 $acid_level=2
 $unsettling=4
@@ -28,6 +40,33 @@ $unsettling_offset=5
 # Init variables, do not change these
 $acid_timer=0
 $unsettling_timer=0
+
+# ***** Idea - Have multiple arrays (or hashes?) for different objects.
+#
+# Init global, stores Images and tracks number of buildings
+$bldgs = []
+
+# Init array for global occupied squares, array grows as more objects are on screen.
+$static_x = []
+$static_y = []
+
+# $player_x and $player_y track player and player related, incl. bullets.
+$player_x = []
+$player_y = []
+
+# $beast_x and $beast_y track the beasties.
+$beasty_x = []
+$beasty_y = []
+
+# Init player initial position
+$player_x_pos=WIDTH-60
+$player_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE
+
+# Init beasty initial position (mainly for testing)
+$beasty_x_pos=20
+$beasty_y_pos=40
+
+
 
 # Images used in game
 $player_sprites={}
@@ -42,34 +81,28 @@ $pewpew_sprites["right"] = Qt::Image.new "pewpew_right.png"
 $pewpew_sprites["up"] = Qt::Image.new "pewpew_up.png"
 $pewpew_sprites["down"] = Qt::Image.new "pewpew_down.png"
 
-$shooty_sprites={}
-
 $back_drops={}
 $back_drops["default"] = Qt::Image.new "bldg_80x40.png"
 $back_drop_x=0
 $back_drop_y=0
 
-@just_shot = false
-
-
+# Creates images from scratch
 $shooty_sprites={}
 shoot_directions=%w[left right up down]
 shoot_directions.each { |i| 
   $shooty_sprites[i]=BuildThings.build_shooty(i)
   }
+###
   
+
 # Sounds (using aplay via fork atm
 @pewpew_sound = Qt::Sound.new "pewpew.wav"
 
-# Shooting arrays and hashes
+# Init shooting arrays and hashes
 $shots_active=[]
 $shots_direc={}
 $shots_counter=0
 
-
-# Error tolerance, the larger the number, the larger the arrays for collision
-# ... but, the world objects (buildings etc.) can be more varied in placement
-ERR_TOLERANCE=2
 
 
 # Check game characters height/width
@@ -81,40 +114,16 @@ PLAYER_MOVE_TOLERANCE=1
 PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE / 2
 PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 2
 
-
-# Idea - Have multiple arrays (or hashes?) for different objects.
-#
-# Init global, stores Images and tracks number of buildings
-$bldgs = []
-
-# Init array for global occupied squares, array grows as more objects are on screen.
-$static_x = []
-$static_y = []
-
-# $player_x and $player_y track player and player related 
-# e.g. bullets.
-$player_x = []
-$player_y = []
-
-# $beast_x and $beast_y track the beasties
-$beasty_x = []
-$beasty_y = []
-
-# Init player initial position
-$player_x_pos=WIDTH-60
-$player_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE
-
-# Init beasty initial position
-$beasty_x_pos=20
-$beasty_y_pos=40
-
 # Check if player is on the SQUARE grid, else place at 0 for offending axis.
+# - For testing
 if $player_x_pos%SPRITE_WIDTH != 0 
   $player_x_pos=0 
 end
 if $player_y_pos%SPRITE_HEIGHT != 0 
   $player_y_pos=0 
 end
+
+
 
 class Board < Qt::Widget
 
@@ -139,6 +148,7 @@ class Board < Qt::Widget
       @up = false
       @down = false
       @shoot = false
+      @just_shot = false
       @shoot_dir = "left"
       @inGame = true
      
