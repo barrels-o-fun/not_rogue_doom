@@ -42,15 +42,71 @@ $pewpew_sprites["right"] = Qt::Image.new "pewpew_right.png"
 $pewpew_sprites["up"] = Qt::Image.new "pewpew_up.png"
 $pewpew_sprites["down"] = Qt::Image.new "pewpew_down.png"
 
+$shooty_sprites={}
 
 $back_drops={}
 $back_drops["default"] = Qt::Image.new "bldg_80x40.png"
 $back_drop_x=0
 $back_drop_y=0
 
+@just_shot = false
 
+# Build shooty animation (just for fun!)
+# Would prefer this to not be four seperate loops
+# Also, move to separate function/module?
+# But this will do for now!
+@shooty_pre = Qt::Image.new(1,1,4)
+	
+# Left
+@shooty_pre.setPixel( 0, 0, 255 )
+shooty_temp = @shooty_pre.scaled(10,1)
+puts shooty_temp.width
+p=0
+set_color=17005440
+while p < shooty_temp.width
+  shooty_temp.setPixel( p, 0, set_color )
+  set_color-=(255*128)
+  p+=1
+end
+$shooty_sprites["left"]=shooty_temp.scaled(10,4)
 
-# Sounds (not working right now, not sure how to play sounds from Qt
+# Right
+shooty_temp = @shooty_pre.scaled(10,1)
+p=0
+set_color=16711680
+while p < shooty_temp.width
+    shooty_temp.setPixel( p, 0, set_color )
+    set_color+=(255*128)
+    p+=1
+  end
+$shooty_sprites["right"]=shooty_temp.scaled(10,4)
+        
+# Up
+shooty_temp = @shooty_pre.scaled(1,10)
+p=0
+set_color=17005440
+while p < shooty_temp.height
+  puts "HERE"
+  shooty_temp.setPixel( 0, p, set_color )
+  set_color-=(255*128)
+  p+=1
+end
+$shooty_sprites["up"]=shooty_temp.scaled(4,10)
+
+print "$shooty_sprites up .height: ", $shooty_sprites["up"].height, "\n"
+        
+# Down
+shooty_temp = @shooty_pre.scaled(1,10)
+p=0
+set_color=16711680
+while p < shooty_temp.height
+  shooty_temp.setPixel( 0, p, set_color )
+  set_color+=(255*128)
+  p+=1
+end
+$shooty_sprites["down"]=shooty_temp.scaled(4,10)
+	
+# Sounds (using aplay via fork atm
 @pewpew_sound = Qt::Sound.new "pewpew.wav"
 
 # Shooting arrays and hashes
@@ -152,14 +208,26 @@ class Board < Qt::Widget
       end
       
 
-      # This rescue doesn't seem to work - look into at some point? 
       # Paint images must be in initGame for game to function.
       begin
         @back_drop_pre_scale = $back_drops["default"]
         @back_drop=@back_drop_pre_scale.scaled(WIDTH, HEIGHT)
         @marine = $player_sprites["left"]
-        @pewpew = Qt::Image.new $pewpew_sprite_left
-        @pewpew_sound = Qt::Sound.new "Pew-pew-pew.mp3"
+        @shooty_sprite = $shooty_sprites["left"]
+
+=begin
+        puts "HERE"
+        puts @marine.height
+        puts "Before colorTable"
+        puts @marine.colorTable
+        puts "Before pixel"
+        puts @marine.pixel
+        puts "Before pixelIndex"
+        puts @marine.pixelIndex
+        puts "HERE_2"
+=end
+
+      @pewpew = Qt::Image.new $pewpew_sprite_left
         
       rescue
         puts "cannot load images"
@@ -242,6 +310,7 @@ class Board < Qt::Widget
     # Keeps things moving even when player is not
     def timerEvent event
 
+	@just_shot=false    
         # Check if shot sprites are on screen
         # figure out shots and place them
         if $shots_active != 0
@@ -317,9 +386,8 @@ class Board < Qt::Widget
  
 
       # Paint player
-      painter.drawImage $player_x[0], $player_y[0], @marine
-
-        
+      painter.drawImage $player_x[0], $player_y[0], @marine unless @just_shot==true && @shoot_dir=="up"
+      
       # Paint beasty
       if @beasty != nil
         if $beasty_hidden==0
@@ -337,7 +405,34 @@ class Board < Qt::Widget
         end
       print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
       print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
-    end
+      
+    
+      # Paint shoting animation (if just_shot), has to be after bullet painting to prevent overlay
+      if @just_shot==true
+        case @shoot_dir
+          when "left"
+        print "@shooty_sprite_left.height: ", $shooty_sprites["left"].height, "\n"
+	    display_x = 0 - $shooty_sprites["left"].width
+	    display_y = ( SPRITE_HEIGHT / 2 - ( $shooty_sprites["left"].height ) )
+            @shooty_sprite=$shooty_sprites["left"]
+          when "right"
+	    display_x = SPRITE_WIDTH
+	    display_y = ( SPRITE_HEIGHT / 2 - ( $shooty_sprites["right"].height ) ) 
+            @shooty_sprite=$shooty_sprites["right"]
+          when "up"
+	    display_x = ( SPRITE_WIDTH / 2 )
+	    display_y = 0 - $shooty_sprites["up"].height + 12
+            @shooty_sprite=$shooty_sprites["up"]
+          when "down"
+	    display_x= ( SPRITE_WIDTH  / 2 )
+	    display_y= ( SPRITE_HEIGHT / 2 )   
+            @shooty_sprite=$shooty_sprites["down"]
+
+        end
+      painter.drawImage $player_x[0] + display_x, $player_y[0] + display_y, @shooty_sprite
+      painter.drawImage $player_x[0], $player_y[0], @marine if @shoot_dir=="up"
+      end    
+   end
 
 
     # Keeping this for now - game over screen
@@ -492,7 +587,8 @@ class Board < Qt::Widget
 
     # Player has inputted someting, what was it?
     def keyPressEvent event
-        
+       
+	@just_shot = false 
         key = event.key
        
         print "\n\n\n" if $debug > 0 
@@ -552,17 +648,18 @@ class Board < Qt::Widget
             @right = false
             @up = false
             @down = false
+	    @just_shot = true
             $shots_counter+=1
             $shots_active.push 1
             case @shoot_dir
               when "left"
                 $player_x[$shots_counter]=$player_x[0]-SPRITE_WIDTH
-                $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT / 2 )
+                $player_y[$shots_counter]=$player_y[0]+( ( SPRITE_HEIGHT / 2 ) - 5 )
                 @pewpew = Qt::Image.new $pewpew_sprite_left
                 $shots_direc[$shots_counter]="left"
               when "right"
                 $player_x[$shots_counter]=$player_x[0]+SPRITE_WIDTH
-                $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT / 2 )
+                $player_y[$shots_counter]=$player_y[0]+( ( SPRITE_HEIGHT / 2 ) - 5 )
                 @pewpew = Qt::Image.new $pewpew_sprite_right
                 $shots_direc[$shots_counter]="right"
               when "up"
