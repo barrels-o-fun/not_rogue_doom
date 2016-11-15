@@ -69,4 +69,55 @@ module BuildThings
       $bldgs.push bldg_temp
       return bldg_temp
     end
+
+  # Build shooty animation (just for fun!)
+  # Would prefer this to not be four seperate loops
+  # Also, move to separate function/module?
+  # But this will do for now!
+  def BuildThings.build_shooty(direc, pixel_multiplier=4)
+    shooty_pre = Qt::Image.new(1,1,4)
+    shooty_pre.setPixel( 0, 0, 255 )
+    if direc=="left" || direc == "right"
+      pixel_width=10  
+      pixel_height=1
+    else
+      pixel_width=1
+      pixel_height=10
+    end
+   
+    shooty_temp = shooty_pre.scaled(pixel_width,pixel_height) 
+    set_color=16711680 if direc=="right" || direc=="down"
+    set_color=17005440 if direc=="left" || direc=="up"
+
+    p=0
+    while p < 10
+      puts "HERE"
+      case direc
+        when "left"
+          shooty_temp.setPixel( p, 0, set_color )
+          set_color-=(255*128)
+        when "right"
+          shooty_temp.setPixel( p, 0, set_color )
+          set_color+=(255*128)
+        when "up"
+          shooty_temp.setPixel( 0, p, set_color )
+          set_color-=(255*128)
+        when "down"
+          shooty_temp.setPixel( 0, p, set_color )
+          set_color+=(255*128)
+      end
+    p+=1
+    end
+    print "$shooty_sprites: ", $shooty_sprites.keys.to_s, $shooty_sprites.values.to_s, "\n\n\n"
+    if direc == "left" || direc == "right"
+      shooty_built=shooty_temp.scaled(pixel_width,pixel_height * pixel_multiplier ) 
+    else
+      shooty_built=shooty_temp.scaled(pixel_width * pixel_multiplier, pixel_height ) 
+    end
+
+  return shooty_built
+
+  end
+
 end
+

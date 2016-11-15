@@ -51,6 +51,16 @@ $back_drop_y=0
 
 @just_shot = false
 
+
+$shooty_sprites={}
+shoot_directions=%w[left right up down]
+shoot_directions.each { |i| 
+  $shooty_sprites[i]=BuildThings.build_shooty(i)
+  }
+  
+
+
+=begin
 # Build shooty animation (just for fun!)
 # Would prefer this to not be four seperate loops
 # Also, move to separate function/module?
@@ -105,6 +115,8 @@ while p < shooty_temp.height
   p+=1
 end
 $shooty_sprites["down"]=shooty_temp.scaled(4,10)
+=end
+
 	
 # Sounds (using aplay via fork atm
 @pewpew_sound = Qt::Sound.new "pewpew.wav"
@@ -590,7 +602,14 @@ class Board < Qt::Widget
        
 	@just_shot = false 
         key = event.key
-       
+      
+        # Will work properly at some point, right now crashes out
+        # Quicker than Alt-F4 or moving mouse ; )
+        if key == Qt::Key_Q.value
+          puts "Q pressed"
+          connect quit, ('clicked()'), $qApp, SLOT('quit()')
+        end
+ 
         print "\n\n\n" if $debug > 0 
         if key == Qt::Key_Left.value
             @left = true

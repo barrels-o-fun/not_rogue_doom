@@ -32,7 +32,7 @@ class QtApp < Qt::MainWindow
     x = (screenWidth - WIDTH) / 2
     y = (screenHeight - HEIGHT) / 2
 
-    move x+450, y-180
+    move x+450, y+200
   end
 
 end
