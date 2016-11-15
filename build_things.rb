@@ -71,9 +71,6 @@ module BuildThings
     end
 
   # Build shooty animation (just for fun!)
-  # Would prefer this to not be four seperate loops
-  # Also, move to separate function/module?
-  # But this will do for now!
   def BuildThings.build_shooty(direc, pixel_multiplier=4)
     shooty_pre = Qt::Image.new(1,1,4)
     shooty_pre.setPixel( 0, 0, 255 )
@@ -91,7 +88,6 @@ module BuildThings
 
     p=0
     while p < 10
-      puts "HERE"
       case direc
         when "left"
           shooty_temp.setPixel( p, 0, set_color )
@@ -108,7 +104,6 @@ module BuildThings
       end
     p+=1
     end
-    print "$shooty_sprites: ", $shooty_sprites.keys.to_s, $shooty_sprites.values.to_s, "\n\n\n"
     if direc == "left" || direc == "right"
       shooty_built=shooty_temp.scaled(pixel_width,pixel_height * pixel_multiplier ) 
     else
