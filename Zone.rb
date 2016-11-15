@@ -58,66 +58,6 @@ shoot_directions.each { |i|
   $shooty_sprites[i]=BuildThings.build_shooty(i)
   }
   
-
-
-=begin
-# Build shooty animation (just for fun!)
-# Would prefer this to not be four seperate loops
-# Also, move to separate function/module?
-# But this will do for now!
-@shooty_pre = Qt::Image.new(1,1,4)
-	
-# Left
-@shooty_pre.setPixel( 0, 0, 255 )
-shooty_temp = @shooty_pre.scaled(10,1)
-puts shooty_temp.width
-p=0
-set_color=17005440
-while p < shooty_temp.width
-  shooty_temp.setPixel( p, 0, set_color )
-  set_color-=(255*128)
-  p+=1
-end
-$shooty_sprites["left"]=shooty_temp.scaled(10,4)
-
-# Right
-shooty_temp = @shooty_pre.scaled(10,1)
-p=0
-set_color=16711680
-while p < shooty_temp.width
-    shooty_temp.setPixel( p, 0, set_color )
-    set_color+=(255*128)
-    p+=1
-  end
-$shooty_sprites["right"]=shooty_temp.scaled(10,4)
-        
-# Up
-shooty_temp = @shooty_pre.scaled(1,10)
-p=0
-set_color=17005440
-while p < shooty_temp.height
-  puts "HERE"
-  shooty_temp.setPixel( 0, p, set_color )
-  set_color-=(255*128)
-  p+=1
-end
-$shooty_sprites["up"]=shooty_temp.scaled(4,10)
-
-print "$shooty_sprites up .height: ", $shooty_sprites["up"].height, "\n"
-        
-# Down
-shooty_temp = @shooty_pre.scaled(1,10)
-p=0
-set_color=16711680
-while p < shooty_temp.height
-  shooty_temp.setPixel( 0, p, set_color )
-  set_color+=(255*128)
-  p+=1
-end
-$shooty_sprites["down"]=shooty_temp.scaled(4,10)
-=end
-
-	
 # Sounds (using aplay via fork atm
 @pewpew_sound = Qt::Sound.new "pewpew.wav"
 
