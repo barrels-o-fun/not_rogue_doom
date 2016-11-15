@@ -15,6 +15,7 @@ require_relative 'build_things'
 
 ### Debug
 $diagnostics=1
+$diagnostics_shooting_timer=0
 $diagnostics_shooting=0
 $debug=0
 $timer_inactive=0
@@ -33,9 +34,9 @@ ERR_TOLERANCE=2
 
 #
 ## Timer delay to change timing of different objects (currently the backdrop flashing)
-$game_timer=60
-$acid_level=2
-$unsettling=4
+$game_timer=10
+$acid_level=16
+$unsettling=12
 $unsettling_offset=5
 # Init variables, do not change these
 $acid_timer=0
@@ -63,8 +64,8 @@ $player_x_pos=WIDTH-60
 $player_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE
 
 # Init beasty initial position (mainly for testing)
-$beasty_x_pos=20
-$beasty_y_pos=40
+$beasty_x_pos=WIDTH-100
+$beasty_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE - 80
 
 
 
@@ -224,7 +225,7 @@ class Board < Qt::Widget
 
         if @inGame
             drawObjects painter
-        if $diagnostics_shooting==1
+        if $diagnostics_shooting_timer==1
           puts $shots_direc[$shots_counter]
           print "Just shot: \n"
           print "@shoot_dir: ", @shoot_dir, "\n"
@@ -282,13 +283,13 @@ class Board < Qt::Widget
             direction=$shots_direc[p]
               case direction
                 when "left"
-                  $player_x[p]-=SPRITE_WIDTH
+                  $player_x[p]-=( SPRITE_WIDTH / 4 )
                 when "right"
-                  $player_x[p]+=SPRITE_WIDTH
+                  $player_x[p]+=( SPRITE_WIDTH / 4 )
                 when "up"
-                  $player_y[p]-=( SPRITE_HEIGHT / 2 )
+                  $player_y[p]-=( ( SPRITE_HEIGHT / 4 ) / 2 )
                 when "down"
-                  $player_y[p]+=( SPRITE_HEIGHT / 2 )
+                  $player_y[p]+=( ( SPRITE_HEIGHT / 4 ) / 2 )
               end
               p+=1
           end
@@ -365,8 +366,8 @@ class Board < Qt::Widget
             |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]]  unless $shots_direc[i]==nil
             }
         end
-      print "$static_x: ", $static_x.to_s, "\n" if $debug > 2
-      print "$static_y: ", $static_y.to_s, "\n" if $debug > 2 
+      print "$static_x: ", $static_x.to_s, "\n" if $debug > 5
+      print "$static_y: ", $static_y.to_s, "\n" if $debug > 5 
       
     
       # Paint shoting animation (if just_shot), has to be after bullet painting to prevent overlay
@@ -491,7 +492,7 @@ class Board < Qt::Widget
     end
 
 
-    # Checks if players x,y pos matches any other object.
+    # Checks if players x,y pos matches any other solid object.
     # We add (SPRITE_x / 2) to check the MIDDLE of the sprite
     def checkCollision( sprite="player", sprite_num = 0)
         case sprite
@@ -506,8 +507,8 @@ class Board < Qt::Widget
         p=0
         while p < $static_x.count
           if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 ) )
-            print "HIT X! \n"  if $debug >5
-            print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 5
+            print "HIT Solid X! \n"  if $debug > 5
+            print "$static_y[", p,"] is ", $static_y[p], "\n" if $debug > 6
             hit=1 if $static_y[p]==check_y[x]
           end
           p+=1
@@ -516,19 +517,50 @@ class Board < Qt::Widget
         p=0
         while p < $static_y.count
           if $static_y[p]==(check_y[sprite_num] + (  SPRITE_HEIGHT / 2 ) )
-            print "HIT Y! \n" if $debug >5
-            print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 5
+            print "HIT Solid Y! \n" if $debug > 5
+            print "$static_x[", p,"] is ", $static_x[p], "\n" if $debug > 6
             hit=1 if $static_x[p]==check_x[x]
           end
           p+=1
         end
         if hit==1
-          puts "hit!"
+          print sprite, sprite_num, " hit solid object!\n" if $diagnostics==1
           hit=1
+          return hit
         end
-        
+       
         # Extra check if bullet
-        # - Will need code to figure out if bullet hit beasty
+        # Requires additional function to process when hit
+        # for now though, the bullet disappears from screen when beast hit
+        #
+        if sprite=="player" && sprite_num != 0 
+          hit_beast=0
+          p=0
+          while p < $beasty_x.count
+            if $beasty_x[p]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
+              print "HIT Beast X! \n"  if $debug >4
+              print "$beasty_y[", p, "] is ", $beasty_y[p], "\n" if $debug > 5
+              if $beasty_y[p]==check_y[sprite_num]+5
+                hit=1
+              end
+            end
+            p+=1
+          end
+           
+          q=0
+          while q < $beasty_y.count
+            if $beasty_y[q]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 ) +5 )
+              print "HIT Beast Y! \n" if $debug >4
+              print "$beasty_x[", q, "] is ", $beasty_x[q], "\n" if $debug > 5
+              if $beasty_x[q]==check_x[sprite_num]+5
+                hit=1
+              end
+            end
+            q+=1
+            print "Player [", sprite_num, "] hit beasty[", p, "]\n\n" if hit==1 && $diagnostics==1
+            return hit
+          end
+        end  
         
         # Extra check if not player, to check if OOB
         if sprite_num != 0 || sprite != "player"
@@ -643,6 +675,19 @@ class Board < Qt::Widget
                 $shots_direc[$shots_counter]="down"
             end
             move
+        end
+
+        if $diagnostics_shooting==1
+          puts $shots_direc[$shots_counter]
+          print "Just shot: \n"
+          print "@shoot_dir: ", @shoot_dir, "\n"
+          print "$shots_counter: ", $shots_counter.to_s, "\n"
+          print "$player_x.to_s: ", $player_x.to_s, "\n"
+          print "$player_y.to_s: ", $player_y.to_s, "\n"
+          print "$shots_active: ", $shots_active.to_s, "\n"
+          print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+          print "$shots_direc_values: ", $shots_direc.values, "\n"
+          print "\n\n"
         end
 
         repaint
