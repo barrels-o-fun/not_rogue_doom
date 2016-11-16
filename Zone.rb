@@ -14,8 +14,8 @@
 require_relative 'build_things'
 
 ### Debug
-$diagnostics=2
-$diagnostics_shooting=1
+$diagnostics=1
+$diagnostics_shooting=0
 $diagnostics_shooting_timer=0
 $static_arrays_mon=false
 $debug=0
@@ -31,7 +31,7 @@ HEIGHT = 480
 
 #
 ## Timer delay to change timing of different objects 
-$game_timer=80
+$game_timer=40
 $monster_delay=4
 $shooting_delay=1
 $acid_level=16
@@ -237,7 +237,7 @@ class Board < Qt::Widget
 
 
   end 
-  ### END OF initgame ###
+  ### END of initgame ###
 
   
   def paintEvent event
@@ -290,75 +290,77 @@ class Board < Qt::Widget
 
       painter.end
   end
+  ### END of paintEvent event ###
 
-    # Keeps things moving even when player is not
-    def timerEvent event
 
-	@just_shot=false    
-        $shooting_delay_timer+=1
-        print "$shooting_delay_timer: ", $shooting_delay_timer, "\n"
-        
+  def timerEvent event
 
-        # Check if shot sprites are on screen
-        # figure out shots and place them
-        if $shots_active != 0
-          p=1
-          # Using p-1 here as hash stores from 1, array from 0
-          while $shots_direc.keys.count > p-1
-            direction=$shots_direc[p]
-              case direction
-                when "left"
-                  $player_x[p]-=( SPRITE_WIDTH / BULLET_SPEED )
-                when "right"
-                  $player_x[p]+=( SPRITE_WIDTH / BULLET_SPEED )
-                when "up"
-                  $player_y[p]-=( ( SPRITE_HEIGHT / BULLET_SPEED ) / 2 )
-                when "down"
-                  $player_y[p]+=( ( SPRITE_HEIGHT / BULLET_SPEED ) / 2 )
-              end
-              p+=1
-          end
-          # Check if bullets have collided
-          $shots_direc.keys.each { |i|
-            if checkCollision("player", i)==1 
-              $player_x[i]=0
-              $player_y[i]=0
-              $shots_direc[i]=nil
+    @just_shot=false    
+    $shooting_delay_timer+=1
+    print "$shooting_delay_timer: ", $shooting_delay_timer, "\n"
+       
+    # Check if shot sprites are on screen
+    # figure out shots and place them
+      if $shots_active != 0
+        p=1
+        # Using p-1 here as hash stores from 1, array from 0
+        while $shots_direc.keys.count > p-1
+          direction=$shots_direc[p]
+            case direction
+              when "left"
+                $player_x[p]-=( SPRITE_WIDTH / BULLET_SPEED )
+              when "right"
+                $player_x[p]+=( SPRITE_WIDTH / BULLET_SPEED )
+              when "up"
+                $player_y[p]-=( ( SPRITE_HEIGHT / BULLET_SPEED ) / 2 )
+              when "down"
+                $player_y[p]+=( ( SPRITE_HEIGHT / BULLET_SPEED ) / 2 )
             end
-          }
+          p+=1
         end
+        # Check if bullets have collided
+        $shots_direc.keys.each { |i|
+          if checkCollision("player", i)==1 
+            $player_x[i]=0
+            $player_y[i]=0
+            $shots_direc[i]=nil
+          end
+        }
+      end
 
-      # Acid Level
-      $acid_timer+=1
-      @back_drop.invertPixels if $acid_timer==$acid_level
-      $acid_timer=0 unless $acid_timer < $acid_level
+    # Acid Level
+    $acid_timer+=1
+    @back_drop.invertPixels if $acid_timer==$acid_level
+    $acid_timer=0 unless $acid_timer < $acid_level
  
-      # Unsettling backdrop
-      $unsettling_timer+=1
-      if $unsettling_timer==$unsettling
-        if $back_drop_x < 0
-          $back_drop_x+=$unsettling_offset
-          $back_drop_y+=$unsettling_offset
-        elsif
-          $back_drop_x-=$unsettling_offset
-          $back_drop_y-=$unsettling_offset
-        end
+    # Unsettling backdrop
+    $unsettling_timer+=1
+    if $unsettling_timer==$unsettling
+      if $back_drop_x < 0
+        $back_drop_x+=$unsettling_offset
+        $back_drop_y+=$unsettling_offset
+      elsif
+        $back_drop_x-=$unsettling_offset
+        $back_drop_y-=$unsettling_offset
+      end
         $unsettling_timer=0 unless $unsettling_timer < $unsettling
-      end
-      
-      # Monster_delay
-      if $monster_delay_timer == $monster_delay
-        print "MOVING \n "
-      end
-      $monster_delay_timer+=1
-      move if $monster_delay_timer == $monster_delay
-      $monster_delay_timer=0 unless $monster_delay_timer < $monster_delay
-         
-      repaint
-
-      #  Keeping here as a note if needing to stop timer
-      #      @timer.stop
     end
+      
+    # Monster_delay
+    if $monster_delay_timer == $monster_delay
+      print "MOVING \n "
+    end
+    $monster_delay_timer+=1
+    move if $monster_delay_timer == $monster_delay
+    $monster_delay_timer=0 unless $monster_delay_timer < $monster_delay
+         
+    repaint
+
+    #  Keeping here as a note if needing to stop timer
+    #      @timer.stop
+
+  end
+  ### END of timerEvent event ###
 
 
 
