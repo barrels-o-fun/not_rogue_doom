@@ -297,7 +297,6 @@ class Board < Qt::Widget
 
     @just_shot=false    
     $shooting_delay_timer+=1
-    print "$shooting_delay_timer: ", $shooting_delay_timer, "\n"
        
     # Check if shot sprites are on screen
     # figure out shots and place them
