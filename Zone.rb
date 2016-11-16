@@ -15,10 +15,10 @@ require_relative 'build_things'
 
 ### Debug
 $diagnostics=1
-$diagnostics_shooting_timer=0
 $diagnostics_shooting=0
+$diagnostics_shooting_timer=0
 $static_arrays_mon=false
-$debug=0
+$debug=5
 $timer_inactive=0
 $one_house=0
 $beast_hidden=0
@@ -28,10 +28,6 @@ $beast_inactive=0
 ### GAME CONSTANTS
 WIDTH = 640
 HEIGHT = 480
-# Error tolerance, the larger the number, the larger the arrays for collision
-# ... but, the world objects (buildings etc.) can be more varied in placement
-ERR_TOLERANCE=2
-###
 
 #
 ## Timer delay to change timing of different objects (currently the backdrop flashing)
@@ -70,11 +66,11 @@ $beast_y = []
 
 # Init player initial position
 $player_x_pos=WIDTH-60
-$player_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE
+$player_y_pos=HEIGHT - ( HEIGHT / 2 )
 
 # Init beasty initial position (mainly for testing)
 $beast_x_pos=WIDTH-100
-$beast_y_pos=HEIGHT-HEIGHT/ERR_TOLERANCE - 80
+$beast_y_pos=HEIGHT-HEIGHT + 80
 
 
 
@@ -118,13 +114,22 @@ $shots_counter=0
 @marine = $player_sprites["left"]
 SPRITE_HEIGHT = @marine.height
 SPRITE_WIDTH = @marine.width
+print "SPRITE_HEIGHT: ", SPRITE_HEIGHT, "\n"
+print "SPRITE_WIDTH: ", SPRITE_WIDTH, "\n"
+# Error tolerance, the larger the number, the larger the arrays for collision
+# ... but, the world objects (buildings etc.) can be more varied in placement
+ERR_TOLERANCE=2
+###
 # Set how much player moves, higher numbers, smaller movements
 PLAYER_MOVE_TOLERANCE=1
-PLAYER_MOVE_X = SPRITE_WIDTH / PLAYER_MOVE_TOLERANCE / 2
+PLAYER_MOVE_X = SPRITE_WIDTH / ERR_TOLERANCE / PLAYER_MOVE_TOLERANCE
+
+# Bullet Speed, lower numbers the better, use EVEN numbers (for collision code)
+BULLET_SPEED=2
 
 ## Trying this out, keeps the Marine "on the spot" more but slow does vertical movements
 # Not sure which I prefer...
-PLAYER_MOVE_Y = SPRITE_HEIGHT / PLAYER_MOVE_TOLERANCE / 4
+PLAYER_MOVE_Y = SPRITE_HEIGHT / ERR_TOLERANCE / PLAYER_MOVE_TOLERANCE / 2
 PERIMETER_RIGHT=WIDTH-SPRITE_WIDTH
 PERIMETER_BOTTOM=HEIGHT-SPRITE_HEIGHT
 
@@ -223,7 +228,7 @@ class Board < Qt::Widget
       $beast_y[1]=40
       
       # Diagnostics
-      if $diagnostics > 1
+      if $diagnostics > 0
           print "=== GAME_START ===\n"
           print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
           if $beast_hidden!=1
@@ -311,13 +316,13 @@ class Board < Qt::Widget
             direction=$shots_direc[p]
               case direction
                 when "left"
-                  $player_x[p]-=( SPRITE_WIDTH / 4 )
+                  $player_x[p]-=( SPRITE_WIDTH / BULLET_SPEED )
                 when "right"
-                  $player_x[p]+=( SPRITE_WIDTH / 4 )
+                  $player_x[p]+=( SPRITE_WIDTH / BULLET_SPEED )
                 when "up"
-                  $player_y[p]-=( ( SPRITE_HEIGHT / 4 ) / 2 )
+                  $player_y[p]-=( ( SPRITE_HEIGHT / BULLET_SPEED ) / 2 )
                 when "down"
-                  $player_y[p]+=( ( SPRITE_HEIGHT / 4 ) / 2 )
+                  $player_y[p]+=( ( SPRITE_HEIGHT / BULLET_SPEED ) / 2 )
               end
               p+=1
           end
@@ -371,7 +376,7 @@ class Board < Qt::Widget
         painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
         # Due to the way we store collison data, this logic ensures each building
         # is placed in the right place
-        q+=($bldgs[p].width/(SPRITE_WIDTH/ERR_TOLERANCE))*($bldgs[p].height/(SPRITE_HEIGHT/ERR_TOLERANCE))
+        q+=( $bldgs[p].width / ( SPRITE_WIDTH / (ERR_TOLERANCE * 2 ) )*( $bldgs[p].height / (SPRITE_HEIGHT / ( ERR_TOLERANCE * 2 ) ) ) )
         p+=1
       end  
  
@@ -449,7 +454,7 @@ class Board < Qt::Widget
     def move
 
         # Diagnostics
-        if $diagnostics > 1
+        if $diagnostics > 0
           print "=== NEW TURN ===\n"
           print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
           if $beast_hidden!=1
@@ -462,7 +467,7 @@ class Board < Qt::Widget
         # Player Moves
         if @left
             $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0] == 0 #  || @prev_shoot_dir != "left"
-            @shoot_dir="right" unless @shoot==true 
+            @shoot_dir="left" unless @shoot==true 
             @prev_shoot_dir="left"
             @marine = $player_sprites["left"]
             
@@ -476,7 +481,6 @@ class Board < Qt::Widget
         end
 
         if @up
-            puts @prev_shoot_dir
             $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0] == 0 #  || @prev_shoot_dir != "up"
             @shoot_dir="up" unless @shoot==true
             @prev_shoot_dir="up"
@@ -511,11 +515,11 @@ class Board < Qt::Widget
 
         # Move beasty (random direction)
         # Needs more logic, beasts get stuck, also don't react to player... yet ; )
-        puts $beasts.to_s
+        puts $beasts.to_s   if $diagnostics < 1
         $beasts.each { |i|
           if $beast_life[i] > 0
             beast_move=rand(7)
-            print "Beast", i, "rand: ", beast_move, "\n"
+            print "Beast", i, "rand: ", beast_move, "\n" if $diagnostics < 1
             if $beast_inactive==0
               case beast_move 
                 when (0..1)  # left
@@ -570,81 +574,95 @@ class Board < Qt::Widget
             check_x=$beast_x
             check_y=$beast_y
         end
-    #      print sprite, sprite_num, " is ", check_y[sprite_num]  ,"\n"
-        bullet_modifier_y=0
+
+        # Set variables for checks and loops, modify the bullet (smaller sprite)
+        bullet_modifier_vert=0
+        bullet_modifier_horiz=0
+        bulet_direction="none"
+          if sprite=="player" && sprite_num > 0
+            bullet_direction=$shots_direc[sprite_num]
+            case bullet_direction
+              when "left", "right"
+                bullet_modifier_vert=0
+                bullet_modifier_horiz=5 
+              when "up", "down"
+                bullet_modifier_vert=10
+                bullet_modifier_horiz=5 
+              else
+            end
+            print "Bullet [", sprite_num, "] - direction: ", bullet_direction, ", Modified- Horiz: ", bullet_modifier_vert, " Vert: ", bullet_modifier_horiz, "\n" if $debug > 6
+          end
         hit=0
         p=0
-        #Check if sprite has hit static object, check X and corresponding Y
-        while p < $static_x.count
-          if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 )  )
-            print sprite, sprite_num, "HIT Solid X, $static_y[", p,"] is ", $static_y[p], "\n" if $debug > 6
-            hit=1 if $static_y[p]==check_y[sprite_num]
-            if hit==1
-              print "I'm HERERERERERE"
-            end
-          end
-          p+=1
-        end
+        q=0
 
         # We also check Y and corresponding X, this is required.
         # Hopefully one day we can do this better :-)
-        q=0
-        bullet_modifier_y=15 if sprite=="player" && sprite_num <= 0
         while q < $static_y.count
-          if $static_y[q]==(check_y[sprite_num] + ( SPRITE_HEIGHT / 2 ) + bullet_modifier_y )
-            print sprite, sprite_num, "HIT Solid Y, $static_x[", q,"] is ", $static_x[q], "\n" if $debug > 6
-            hit=1 if $static_x[q]==check_x[sprite_num]
+          if $static_y[q]==(check_y[sprite_num] + ( SPRITE_HEIGHT / 2 ) )
+            print sprite, sprite_num, "HIT Solid Y at:", check_y[sprite_num], ". Their X is ", check_x[sprite_num], ". Checking againsts $static_x[", q,"] : ", $static_x[q], "\n" if $debug > 6
+            hit=1 if $static_x[q]==check_x[sprite_num] + bullet_modifier_horiz
           end
+          break if hit==1
           q+=1
         end
 
+        #Check if sprite has hit static object, check X and corresponding Y
+        # We use while to keep track of the position within the static_x / static_y arrays for comparison.
+        while p < $static_x.count
+          if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 ) - bullet_modifier_vert )
+            print sprite, sprite_num, "HIT Solid X at:", $static_x[p], ". Their Y is: ", check_y[sprite_num], ". Checking against $static_y[", p,"] : ", $static_y[p], "\n" if $debug > 6
+            hit=1 if $static_y[p]==check_y[sprite_num]+bullet_modifier_horiz
+          end
+          break if hit==1
+          p+=1
+        end
+
+
         if hit==1
           print "************", sprite, sprite_num, " hit solid object! ******* \n\n\n\n\n" if $diagnostics>=1
-          hit=1
           return hit
         end
        
         #### Bullet Check ####
         # Records beast hits, and reduces beast life
         if sprite=="player" && sprite_num != 0 
-          p=0
-          while p < $beasts.count
-            if $beast_x[p]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
-              print "HIT Beast X! \n"  if $debug >4
-              print "$beast_y[", p, "] is ", $beast_y[p], "\n" if $debug > 5
-              if $beast_y[p]==check_y[sprite_num]+5
+          r=0
+          while r < $beasts.count
+            if $beast_x[r]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
+              print "HIT Beast X! @ ", check_x[sprite_num], ",", check_y[sprite_num], " - $beast_x[", r, "] is ", $beast_x[r], ". $beast_y[", r, "] is ", $beast_y[r], "\n" if $debug > 4
+              if $beast_y[r]==check_y[sprite_num]-15
                 hit=1
-                beast_hit=$beasts[p]
-                $beast_life[p]-=1
-                if $beast_life[p]<=0
-                  $beast_x[p]=-100
-                  $beast_y[p]=-100
+                beast_hit=$beasts[r]
+                $beast_life[r]-=1
+                if $beast_life[r]<=0
+                  $beast_x[r]=-100
+                  $beast_y[r]=-100
                 end
                 print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", $beast_life[beast_hit], "\n" if $diagnostics>=1
               end
             end
-            p+=1
+            r+=1
             return hit if hit == 1
           end
           
           # As before we check X then Y above, and follow it with Y and X 
-          q=0
-          while q < $beast_y.count
-            if $beast_y[q]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 ) +5 )
-              print "HIT Beast Y! \n" if $debug >4
-              print "$beast_x[", q, "] is ", $beast_x[q], "\n" if $debug > 5
-              if $beast_x[q]==check_x[sprite_num]+5
+          s=0
+          while s < $beast_y.count
+            if $beast_y[s]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 )  +5 )
+              print "HIT Beast Y! @ ", check_y[sprite_num], ",", check_y[sprite_num],  " -  $beast_y[", s, "] is ", $beast_y[s], ". $beast_x[", s, "] is ", $beast_x[s], "\n" if $debug > 4
+              if $beast_x[s]==check_x[sprite_num]+5
                 hit=1
-                beast_hit=$beasts[q]
-                $beast_life[q]-=1
-                if $beast_life[q]<=0
-                  $beast_x[q]=-100
-                  $beast_y[q]=-100
+                beast_hit=$beasts[s]
+                $beast_life[s]-=1
+                if $beast_life[s]<=0
+                  $beast_x[s]=-100
+                  $beast_y[s]=-100
                 end
                 print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", $beast_life[beast_hit], "\n" if $diagnostics>=1
               end
             end
-            q+=1
+            s+=1
             print "Player [", sprite_num, "] hit beasty[", p, "]\n\n" if hit==1 && $diagnostics==1
             return hit if hit == 1
           end

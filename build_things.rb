@@ -8,21 +8,24 @@ module BuildThings
         # Check if x and y match up to grid
         build_err_x=0
         build_err_y=0
-        if pos_x % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
+        if pos_x % ( SPRITE_WIDTH/ERR_TOLERANCE ) != 0
           p=0
-          while (pos_x+p) % (SPRITE_WIDTH/ERR_TOLERANCE) != 0
+          while (pos_x+p) % ( SPRITE_WIDTH/ERR_TOLERANCE ) != 0
             p+=1
           end
-          print "Bad-X, increasing by ", p, "\n"
+          print "House at ", pos_x, ", ", pos_y, ". Bad-X, increasing by ", p, "\n"
           build_err_x=p
-        elsif pos_y % (SPRITE_HEIGHT/ERR_TOLERANCE) != 0
+        elsif pos_y % ( SPRITE_HEIGHT/ ( ERR_TOLERANCE  * 2 ) ) != 0
           p=0
-          while (pos_y+p) % (SPRITE_HEIGHT/ERR_TOLERANCE) != 0
+          while (pos_y+p) % ( SPRITE_HEIGHT / ( ERR_TOLERANCE * 2 ) ) != 0
             p+=1
           end
-          print "Bad-Y, increasing by ", p, "\n"
+          print "House at ", pos_x, ",", pos_y, ". Bad-Y, increasing by ", p, "\n"
           build_err_y=p
         end
+
+        print "Creating building at: ", pos_x + build_err_x, ", ", pos_y + build_err_y, ", W: ", width, " ,H: ", height, " Color: ", color, "\n"
+        
         # Set building sprites - this will eventually have more options!
         #
         orientation="verti"
@@ -60,9 +63,9 @@ module BuildThings
           while q < bldg_temp.height
             $static_x.push pos_x+build_err_x+p
             $static_y.push pos_y+build_err_y+q
-            q+=SPRITE_HEIGHT/ERR_TOLERANCE
+            q+= SPRITE_HEIGHT /  ( ERR_TOLERANCE  * 2 )
           end
-          p+=SPRITE_WIDTH/ERR_TOLERANCE
+          p+=SPRITE_WIDTH / ( ERR_TOLERANCE * 2 )
         end
       $bldgs.push bldg_temp
       return bldg_temp
