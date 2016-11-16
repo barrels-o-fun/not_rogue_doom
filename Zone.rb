@@ -363,196 +363,194 @@ class Board < Qt::Widget
   ### END of timerEvent event ###
 
 
+  def drawObjects painter
 
-    # Here we draw the objects, 
-    def drawObjects painter
-
-      # Paint backdrop 
-      painter.drawImage $back_drop_x, $back_drop_y, @back_drop
-        
-      # Paint buildings
-      p=0
-      q=0
-      while p < $bldgs.count
-        painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
-        # Due to the way we store collison data, this logic ensures each building
-        # is placed in the right place
-        q+=( $bldgs[p].width / ( SPRITE_WIDTH / (ERR_TOLERANCE * 2 ) ) \
-            *( $bldgs[p].height / (SPRITE_HEIGHT / ( ERR_TOLERANCE * 2 ) ) ) )
-        p+=1
-      end  
- 
-
-      # Paint player
-      painter.drawImage $player_x[0], $player_y[0], @marine unless @just_shot==true && @shoot_dir=="up"
+    # Paint backdrop 
+    painter.drawImage $back_drop_x, $back_drop_y, @back_drop
       
-      # Paint beasty
-      if $beast_hidden != 1
-        $beasts.each { |active_beast|
-          if $beast_life[active_beast] > 0
-            painter.drawImage $beast_x[active_beast], $beast_y[active_beast], @beasty
-          end
+    # Paint buildings
+    p=0
+    q=0
+    while p < $bldgs.count
+      painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
+      # Due to the way we store collison data, this logic ensures each building
+      # is placed in the right place
+      q+=( $bldgs[p].width / ( SPRITE_WIDTH / (ERR_TOLERANCE * 2 ) ) \
+          *( $bldgs[p].height / (SPRITE_HEIGHT / ( ERR_TOLERANCE * 2 ) ) ) )
+      p+=1
+    end  
+ 
+    # Paint player
+    painter.drawImage $player_x[0], $player_y[0], @marine unless @just_shot==true && @shoot_dir=="up"
+      
+    # Paint beasties
+    if $beast_hidden != 1
+      $beasts.each { |active_beast|
+        if $beast_life[active_beast] > 0
+          painter.drawImage $beast_x[active_beast], $beast_y[active_beast], @beasty
+        end
+      }
+    end
+     
+    # Paint bullets
+    # (We don't currently set @shoot to false, only to true after first hit)
+    if @shoot==true
+      if $shots_direc.count != 0
+        $shots_direc.keys.each {
+          |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]] \
+              unless $shots_direc[i]==nil
         }
       end
-     
-      # Paint bullets
-      # (We don't currently set @shoot to false, only to true after first hit)
-      if @shoot==true
-        if $shots_direc.count != 0
-          $shots_direc.keys.each {
-            |i| painter.drawImage $player_x[i], $player_y[i], $pewpew_sprites[$shots_direc[i]]  unless $shots_direc[i]==nil
-            }
-        end
-      
+    end   
     
-      # Paint shoting animation (if just_shot), has to be after bullet painting to prevent overlay
-      if @just_shot==true
-        case @shoot_dir
-          when "left"
-        print "@shooty_sprite_left.height: ", $shooty_sprites["left"].height, "\n"
-	    display_x = 0 - $shooty_sprites["left"].width
-	    display_y = ( SPRITE_HEIGHT / 2 - ( $shooty_sprites["left"].height ) )
-            @shooty_sprite=$shooty_sprites["left"]
-          when "right"
-	    display_x = SPRITE_WIDTH
-	    display_y = ( SPRITE_HEIGHT / 2 - ( $shooty_sprites["right"].height ) ) 
-            @shooty_sprite=$shooty_sprites["right"]
-          when "up"
-	    display_x = ( SPRITE_WIDTH / 2 )
-	    display_y = 0 - $shooty_sprites["up"].height + 12
-            @shooty_sprite=$shooty_sprites["up"]
-          when "down"
-	    display_x= ( SPRITE_WIDTH  / 2 )
-	    display_y= ( SPRITE_HEIGHT / 2 )   
-            @shooty_sprite=$shooty_sprites["down"]
-
+    # Paint shooting animation (if just_shot), has to be after bullet painting to prevent overlay
+    if @just_shot==true
+      case @shoot_dir
+        when "left"
+          print "@shooty_sprite_left.height: ", $shooty_sprites["left"].height, "\n"
+          display_x = 0 - $shooty_sprites["left"].width
+          display_y = ( SPRITE_HEIGHT / 2 - ( $shooty_sprites["left"].height ) )
+          @shooty_sprite=$shooty_sprites["left"]
+        when "right"
+          display_x = SPRITE_WIDTH
+          display_y = ( SPRITE_HEIGHT / 2 - ( $shooty_sprites["right"].height ) ) 
+          @shooty_sprite=$shooty_sprites["right"]
+        when "up"
+          display_x = ( SPRITE_WIDTH / 2 )
+	  display_y = 0 - $shooty_sprites["up"].height + 12
+          @shooty_sprite=$shooty_sprites["up"]
+        when "down"
+          display_x= ( SPRITE_WIDTH  / 2 )
+	  display_y= ( SPRITE_HEIGHT / 2 )   
+          @shooty_sprite=$shooty_sprites["down"]
+        else
         end
       painter.drawImage $player_x[0] + display_x, $player_y[0] + display_y, @shooty_sprite
       painter.drawImage $player_x[0], $player_y[0], @marine if @shoot_dir=="up"
-      end    
-   end
+    end    
+  end
+  ### END of drawObjects painter ###
 
 
-    # Keeping this for now - game over screen
-    def gameOver painter
-        msg = "Game Over"
-        small = Qt::Font.new "Helvetica", 12,
-            Qt::Font::Bold.value
+  def gameOver painter  # Keeping this for now - game over screen
+    msg = "Game Over"
+    small = Qt::Font.new "Helvetica", 12,
+    Qt::Font::Bold.value
+       
+    metr = Qt::FontMetrics.new small
         
-        metr = Qt::FontMetrics.new small
-        
-        textWidth = metr.width msg
-        h = height
-        w = width
+    textWidth = metr.width msg
+    h = height
+    w = width
 
-        painter.setPen Qt::Color.new Qt::white
-        painter.setFont small
-        painter.translate Qt::Point.new w/ERR_TOLERANCE, h/2
-        painter.drawText -textWidth/ERR_TOLERANCE, 0, msg
+    painter.setPen Qt::Color.new Qt::white
+    painter.setFont small
+    painter.translate Qt::Point.new w/ERR_TOLERANCE, h/2
+    painter.drawText -textWidth/ERR_TOLERANCE, 0, msg
+  end
+
+
+
+  def move  # Player moves, do they collide?
+
+    # Diagnostics
+    if $diagnostics > 0
+      print "=== NEW TURN ===\n"
+      print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
+      if $beast_hidden!=1
+        $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
+      end
+      print "---------------- \n"
     end
 
+    # Player Moves
+    case @player_move
+      when "left"
+        $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0] == 0 #  || @prev_shoot_dir != "left"
+        @shoot_dir="left" unless @shoot==true 
+        @prev_shoot_dir="left"
+        @marine = $player_sprites["left"]
+      when "right" 
+        $player_x[0] += PLAYER_MOVE_X  unless $player_x[0] == PERIMETER_RIGHT #  || @prev_shoot_dir != "right"
+        @shoot_dir="right" unless @shoot==true 
+        @prev_shoot_dir="right"
+        @marine = $player_sprites["right"]
+      when "up"
+        $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0] == 0 #  || @prev_shoot_dir != "up"
+        @shoot_dir="up" unless @shoot==true
+        @prev_shoot_dir="up"
+        @marine = $player_sprites["up"]
+      when "down"
+        $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0] == PERIMETER_BOTTOM #  || @prev_shoot_dir != "down"
+        @shoot_dir="down" unless @shoot==true
+        @prev_shoot_dir="down"
+        @marine = $player_sprites["down"]
+      else
+    end
 
-    # Player moves, do they collide?
-    def move
+    # collision check, currently against non-hurty static objects (buildings)
+    if checkCollision("player", 0)==1
+      case @player_move
+        when "left"
+          $player_x[0] += PLAYER_MOVE_X
+        when "right"
+          $player_x[0] -= PLAYER_MOVE_X
+        when "up"
+          $player_y[0] += PLAYER_MOVE_Y
+        when "down"
+          $player_y[0] -= PLAYER_MOVE_Y 
+        else
+      end
+    end
 
-        # Diagnostics
-        if $diagnostics > 0
-          print "=== NEW TURN ===\n"
-          print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
-          if $beast_hidden!=1
-            $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
-          end
-        print "---------------- \n"
-        end
-
-        @shoot_dir="left" if @shoot_dir == nil 
-        # Player Moves
-        case @player_move
-          when "left"
-            $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0] == 0 #  || @prev_shoot_dir != "left"
-            @shoot_dir="left" unless @shoot==true 
-            @prev_shoot_dir="left"
-            @marine = $player_sprites["left"]
-          when "right" 
-            $player_x[0] += PLAYER_MOVE_X  unless $player_x[0] == PERIMETER_RIGHT #  || @prev_shoot_dir != "right"
-            @shoot_dir="right" unless @shoot==true 
-            @prev_shoot_dir="right"
-            @marine = $player_sprites["right"]
-          when "up"
-            $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0] == 0 #  || @prev_shoot_dir != "up"
-            @shoot_dir="up" unless @shoot==true
-            @prev_shoot_dir="up"
-            @marine = $player_sprites["up"]
-          when "down"
-            $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0] == PERIMETER_BOTTOM #  || @prev_shoot_dir != "down"
-            @shoot_dir="down" unless @shoot==true
-            @prev_shoot_dir="down"
-            @marine = $player_sprites["down"]
-          else
-          end
-
-        # collision check, currently against non-hurty static objects (buildings)
-        if checkCollision("player", 0)==1
-          case @player_move
-            when "left"
-              $player_x[0] += PLAYER_MOVE_X
-            when "right"
-              $player_x[0] -= PLAYER_MOVE_X
-            when "up"
-              $player_y[0] += PLAYER_MOVE_Y
-            when "down"
-              $player_y[0] -= PLAYER_MOVE_Y 
-            else
-          end
-        end
-
-        # Move beasty (random direction)
-        # Needs more logic, beasts get stuck, also don't react to player... yet ; )
-        puts $beasts.to_s   if $diagnostics < 1
-        $beasts.each { |i|
-          if $beast_life[i] > 0
-            beast_move=rand(7)
-            print "Beast", i, "rand: ", beast_move, "\n" if $diagnostics < 1
-            if $beast_inactive==0
-              case beast_move 
-                when (0..1)  # left
-                  $beast_x[i] -= PLAYER_MOVE_X unless $beast_x[i] == 0
-                  if checkCollision( "beast", i ) ==1 
-                     print "Beast Collided when going left \n"
-                     $beast_x[i] += PLAYER_MOVE_X
-                  end
-               when (2..3)  # right
-                 $beast_x[i] += PLAYER_MOVE_X unless $beast_x[i] == PERIMETER_RIGHT
-                   if checkCollision( "beast", i ) ==1 
-                     print "Beast Collided when going right \n"
-                     $beast_x[i] -= PLAYER_MOVE_X
-                   end
-               when (4..5) # up
-                 $beast_y[i] -= PLAYER_MOVE_Y unless $beast_y[i] == 0
-                 if checkCollision( "beast", i ) ==1 
-                   print "Beast Collided when going up \n"
-                   $beast_y[i] += PLAYER_MOVE_Y
-                 end
-               when (6..7) # down
-                 $beast_y[i] += PLAYER_MOVE_Y unless $beast_y[i] == PERIMETER_BOTTOM
-                 if checkCollision( "beast", i ) ==1 
-                   $beast_y[i] -= PLAYER_MOVE_Y 
-                   print "Beast Collided when going down \n"
-                 end
+    # Move beasty (random direction)
+    # Needs more logic, beasts get stuck, also don't react to player... yet ; )
+    puts $beasts.to_s   if $diagnostics < 1
+    $beasts.each { |i|
+      if $beast_life[i] > 0
+        beast_move=rand(7)
+        print "Beast", i, "rand: ", beast_move, "\n" if $diagnostics < 1
+        if $beast_inactive==0
+          case beast_move 
+            when (0..1)  # left
+              $beast_x[i] -= PLAYER_MOVE_X unless $beast_x[i] == 0
+              if checkCollision( "beast", i ) ==1 
+                print "Beast Collided when going left \n"
+                $beast_x[i] += PLAYER_MOVE_X
               end
+            when (2..3)  # right
+              $beast_x[i] += PLAYER_MOVE_X unless $beast_x[i] == PERIMETER_RIGHT
+              if checkCollision( "beast", i ) ==1 
+                print "Beast Collided when going right \n"
+                $beast_x[i] -= PLAYER_MOVE_X
+              end
+            when (4..5) # up
+              $beast_y[i] -= PLAYER_MOVE_Y unless $beast_y[i] == 0
+              if checkCollision( "beast", i ) ==1 
+              print "Beast Collided when going up \n"
+              $beast_y[i] += PLAYER_MOVE_Y
+              end
+            when (6..7) # down
+              $beast_y[i] += PLAYER_MOVE_Y unless $beast_y[i] == PERIMETER_BOTTOM
+              if checkCollision( "beast", i ) ==1 
+              $beast_y[i] -= PLAYER_MOVE_Y 
+              print "Beast Collided when going down \n"
             end
           end
-        }
-        
-        # Diagnostics
-        if $diagnostics > 1
-          print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
-          if $beast_hidden!=1
-            $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
-          end
-        print "---------------- \n"
         end
-    end
+      end
+    }
+        
+    # Diagnostics
+    if $diagnostics > 1
+      print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
+      if $beast_hidden!=1
+        $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
+      end
+      print "---------------- \n"
+      end
+  end
+  ### End of def move ###
 
 
     # Checks if players x,y pos matches any other solid object.
@@ -800,4 +798,3 @@ class Board < Qt::Widget
         repaint
      end
   end
-end
