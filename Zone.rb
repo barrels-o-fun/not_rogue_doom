@@ -18,7 +18,7 @@ $diagnostics=1
 $diagnostics_shooting=0
 $diagnostics_shooting_timer=0
 $static_arrays_mon=false
-$debug=5
+$debug=0
 $timer_inactive=0
 $one_house=0
 $beast_hidden=0
@@ -627,47 +627,50 @@ class Board < Qt::Widget
         #### Bullet Check ####
         # Records beast hits, and reduces beast life
         if sprite=="player" && sprite_num != 0 
-          r=0
-          while r < $beasts.count
-            if $beast_x[r]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
-              print "HIT Beast X! @ ", check_x[sprite_num], ",", check_y[sprite_num], " - $beast_x[", r, "] is ", $beast_x[r], ". $beast_y[", r, "] is ", $beast_y[r], "\n" if $debug > 4
-              if $beast_y[r]==check_y[sprite_num]-15
+          $beasts.each { |beast|
+            if $beast_x[beast]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
+              print "HIT Beast X! @ ", check_x[sprite_num], ",", check_y[sprite_num], " - $beast_x[", \
+                  beast, "] is ", $beast_x[beast], ". $beast_y[", beast, "] is ", \
+                  $beast_y[beast], "\n" if $debug > 4
+              # Check if bullet Y pos is in range from beast origin to its height
+              if $beast_y[beast]..$beast_y[beast]+SPRITE_HEIGHT==check_y[sprite_num]
                 hit=1
-                beast_hit=$beasts[r]
-                $beast_life[r]-=1
-                if $beast_life[r]<=0
-                  $beast_x[r]=-100
-                  $beast_y[r]=-100
+                beast_hit=$beasts[beast]
+                $beast_life[beast]-=1
+                if $beast_life[beast]<=0
+                  $beast_x[beast]=-100
+                  $beast_y[beast]=-100
                 end
-                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", $beast_life[beast_hit], "\n" if $diagnostics>=1
+                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", \
+                    $beast_life[beast_hit], "\n" if $diagnostics>=1
+                return hit 
               end
             end
-            r+=1
-            return hit if hit == 1
-          end
+          }
           
           # As before we check X then Y above, and follow it with Y and X 
-          s=0
-          while s < $beast_y.count
-            if $beast_y[s]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 )  +5 )
-              print "HIT Beast Y! @ ", check_y[sprite_num], ",", check_y[sprite_num],  " -  $beast_y[", s, "] is ", $beast_y[s], ". $beast_x[", s, "] is ", $beast_x[s], "\n" if $debug > 4
-              if $beast_x[s]==check_x[sprite_num]+5
+          $beasts.each { |beast|    
+            if $beast_y[beast]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 )  +5 )
+              print "HIT Beast Y! @ ", check_y[sprite_num], ",", check_y[sprite_num], \
+                  " -  $beast_y[", beast, "] is ", $beast_y[beast], ". $beast_x[", beast, "] is ", \
+                  $beast_x[beast], "\n" if $debug > 4
+              # Check if bullet X pos is in range from beast origin to its width
+              if $beast_x[beast]..$beast_x[beast]+SPRITE_WIDTH==check_x[sprite_num]
                 hit=1
-                beast_hit=$beasts[s]
-                $beast_life[s]-=1
-                if $beast_life[s]<=0
-                  $beast_x[s]=-100
-                  $beast_y[s]=-100
+                beast_hit=$beasts[beast]
+                $beast_life[beast]-=1
+                if $beast_life[beast]<=0
+                  $beast_x[beast]=-100
+                  $beast_y[beast]=-100
                 end
-                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", $beast_life[beast_hit], "\n" if $diagnostics>=1
+                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", \
+                    $beast_life[beast_hit], "\n" if $diagnostics>=1
+                return hit
               end
             end
-            s+=1
-            print "Player [", sprite_num, "] hit beasty[", p, "]\n\n" if hit==1 && $diagnostics==1
-            return hit if hit == 1
-          end
-        end  
-        
+            print "Player [", sprite_num, "] hit beasty[", p, "]\n\n" if hit==1 && $diagnostics>=1
+          }
+       end
         # Extra check if not player, to check if OOB
         if sprite_num != 0 || sprite != "player"
             if check_x[sprite_num] < 0
