@@ -14,11 +14,11 @@
 require_relative 'build_things'
 
 ### Debug
-$diagnostics=1
-$diagnostics_shooting=0
+$diagnostics=2
+$diagnostics_shooting=1
 $diagnostics_shooting_timer=0
 $static_arrays_mon=false
-$debug=0
+$debug=5
 $timer_inactive=0
 $one_house=0
 $beast_hidden=0
@@ -31,7 +31,7 @@ HEIGHT = 480
 
 #
 ## Timer delay to change timing of different objects (currently the backdrop flashing)
-$game_timer=10
+$game_timer=90
 $acid_level=16
 $unsettling=12
 $unsettling_offset=5
@@ -42,7 +42,9 @@ $unsettling_timer=0
 # ***** Idea - Have multiple arrays (or hashes?) for different objects.
 #
 # Init global, stores Images and tracks number of buildings
+#   PLAN - Store Building attributes, instead of array blocking out X/Y co-ords
 $bldgs = []
+$bldgs_hash = {}
 
 # Init array for global occupied squares, array grows as more objects are on screen.
 $static_x = []
@@ -596,27 +598,26 @@ class Board < Qt::Widget
         p=0
         q=0
 
-        # We also check Y and corresponding X, this is required.
+        #Check if sprite has hit static object, check Y and corresponding X
         # Hopefully one day we can do this better :-)
-        while q < $static_y.count
-          if $static_y[q]==(check_y[sprite_num] + ( SPRITE_HEIGHT / 2 ) )
+        $static_y.each { |pos_y|
+          if pos_y == (check_y[sprite_num] + ( SPRITE_HEIGHT / 2 ) )
             print sprite, sprite_num, "HIT Solid Y at:", check_y[sprite_num], ". Their X is ", check_x[sprite_num], ". Checking againsts $static_x[", q,"] : ", $static_x[q], "\n" if $debug > 6
             hit=1 if $static_x[q]==check_x[sprite_num] + bullet_modifier_horiz
           end
           break if hit==1
           q+=1
-        end
+        }
 
-        #Check if sprite has hit static object, check X and corresponding Y
-        # We use while to keep track of the position within the static_x / static_y arrays for comparison.
-        while p < $static_x.count
-          if $static_x[p]==(check_x[sprite_num] +( SPRITE_WIDTH / 2 ) - bullet_modifier_vert )
+        # We also check X and corresponding Y, this is required.
+        $static_x.count { |pos_x|
+          if pos_x == (check_x[sprite_num] +( SPRITE_WIDTH / 2 ) - bullet_modifier_vert )
             print sprite, sprite_num, "HIT Solid X at:", $static_x[p], ". Their Y is: ", check_y[sprite_num], ". Checking against $static_y[", p,"] : ", $static_y[p], "\n" if $debug > 6
             hit=1 if $static_y[p]==check_y[sprite_num]+bullet_modifier_horiz
           end
           break if hit==1
           p+=1
-        end
+        }
 
 
         if hit==1
@@ -626,51 +627,60 @@ class Board < Qt::Widget
        
         #### Bullet Check ####
         # Records beast hits, and reduces beast life
-        if sprite=="player" && sprite_num != 0 
-          $beasts.each { |beast|
-            if $beast_x[beast]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
-              print "HIT Beast X! @ ", check_x[sprite_num], ",", check_y[sprite_num], " - $beast_x[", \
-                  beast, "] is ", $beast_x[beast], ". $beast_y[", beast, "] is ", \
-                  $beast_y[beast], "\n" if $debug > 4
-              # Check if bullet Y pos is in range from beast origin to its height
-              if $beast_y[beast]..$beast_y[beast]+SPRITE_HEIGHT==check_y[sprite_num]
-                hit=1
-                beast_hit=$beasts[beast]
-                $beast_life[beast]-=1
-                if $beast_life[beast]<=0
-                  $beast_x[beast]=-100
-                  $beast_y[beast]=-100
+        case bullet_direction
+          when "left","right"
+            if sprite=="player" && sprite_num != 0 
+              $beasts.each { |beast|
+                if $beast_x[beast]==(check_x[sprite_num] - ( SPRITE_WIDTH / 2 ) )
+                  print "HIT Beast X! @ ", check_x[sprite_num], ",", check_y[sprite_num], " - $beast_x[", \
+                      beast, "] is ", $beast_x[beast], ". $beast_y[", beast, "] is ", \
+                      $beast_y[beast], "\n" if $debug > 4
+                  # Check if bullet Y pos is in range from beast origin to its height
+                  case check_y[sprite_num]
+                    when ( $beast_y[beast]..$beast_y[beast]+SPRITE_HEIGHT )
+                    hit=1
+                    beast_hit=$beasts[beast]
+                    $beast_life[beast]-=1
+                    if $beast_life[beast]<=0
+                      $beast_x[beast]=-100
+                      $beast_y[beast]=-100
+                    end
+                    print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", \
+                        $beast_life[beast_hit], "\n" if $diagnostics>=1
+                    return hit 
+                  else
+                    print "DID NOT HIT \n"
+                  end
                 end
-                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", \
-                    $beast_life[beast_hit], "\n" if $diagnostics>=1
-                return hit 
-              end
+              }
             end
-          }
-          
-          # As before we check X then Y above, and follow it with Y and X 
-          $beasts.each { |beast|    
-            if $beast_y[beast]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 )  +5 )
-              print "HIT Beast Y! @ ", check_y[sprite_num], ",", check_y[sprite_num], \
-                  " -  $beast_y[", beast, "] is ", $beast_y[beast], ". $beast_x[", beast, "] is ", \
-                  $beast_x[beast], "\n" if $debug > 4
-              # Check if bullet X pos is in range from beast origin to its width
-              if $beast_x[beast]..$beast_x[beast]+SPRITE_WIDTH==check_x[sprite_num]
-                hit=1
-                beast_hit=$beasts[beast]
-                $beast_life[beast]-=1
-                if $beast_life[beast]<=0
-                  $beast_x[beast]=-100
-                  $beast_y[beast]=-100
+          when "up", "down"     
+            $beasts.each { |beast|    
+              if $beast_y[beast]==(check_y[sprite_num] - ( SPRITE_HEIGHT / 2 )  +5 )
+                print "HIT Beast Y! @ ", check_y[sprite_num], ",", check_y[sprite_num], \
+                    " -  $beast_x[", beast, "] is ", $beast_x[beast], ". $beast_y[", beast, "] is ", \
+                    $beast_y[beast], "\n" if $debug > 4
+                # Check if bullet X pos is in range from beast origin to its width
+                case check_x[sprite_num]
+                  when ( $beast_x[beast]..$beast_x[beast]+SPRITE_WIDTH )
+                  hit=1
+                  beast_hit=$beasts[beast]
+                  $beast_life[beast]-=1
+                    if $beast_life[beast]<=0
+                      $beast_x[beast]=-100
+                      $beast_y[beast]=-100
+                    end
+                    print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", \
+                      $beast_life[beast_hit], "\n" if $diagnostics>=1
+                    return hit
+                  else
+                  print "DID NOT  HIT \n"
                 end
-                print "**** BEAST HIT - $beast_life[", beast_hit, "]: ", \
-                    $beast_life[beast_hit], "\n" if $diagnostics>=1
-                return hit
               end
-            end
-            print "Player [", sprite_num, "] hit beasty[", p, "]\n\n" if hit==1 && $diagnostics>=1
-          }
-       end
+            }
+          else
+        end
+
         # Extra check if not player, to check if OOB
         if sprite_num != 0 || sprite != "player"
             if check_x[sprite_num] < 0
@@ -686,6 +696,7 @@ class Board < Qt::Widget
 
         return hit
     end
+
 
 
     # Player has inputted someting, what was it?
