@@ -18,7 +18,7 @@ $diagnostics=2
 $diagnostics_shooting=1
 $diagnostics_shooting_timer=0
 $static_arrays_mon=false
-$debug=5
+$debug=0
 $timer_inactive=0
 $one_house=0
 $beast_hidden=0
@@ -30,14 +30,18 @@ WIDTH = 640
 HEIGHT = 480
 
 #
-## Timer delay to change timing of different objects (currently the backdrop flashing)
-$game_timer=90
+## Timer delay to change timing of different objects 
+$game_timer=80
+$monster_delay=4
+$shooting_delay=1
 $acid_level=16
 $unsettling=12
 $unsettling_offset=5
 # Init variables, do not change these
 $acid_timer=0
 $unsettling_timer=0
+$monster_delay_timer=0
+$shooting_delay_timer=$shooting_delay   # Allows the first shot before delay is introduced
 
 # ***** Idea - Have multiple arrays (or hashes?) for different objects.
 #
@@ -149,166 +153,152 @@ end
 class Board < Qt::Widget
 
   
-    def initialize(parent)
-      super(parent)
+  def initialize(parent)
+    super(parent)
         
-      setFocusPolicy Qt::StrongFocus
-      
-      initGame
+    setFocusPolicy Qt::StrongFocus
+    
+    initGame
+  end
+
+
+  def initGame
+     
+    # Set background colour 
+    setStyleSheet "QWidget { background-color: #000000 }"
+
+    # Initialize main game attributes    
+    @player_move = "none"
+    @shoot = false
+    @just_shot = false
+    @shoot_dir = "left"
+    @prev_shoot_dir = "left"
+    @inGame = true
+     
+    # Building my houses outside of begin/end loop (it was there from nibbles.. 
+    # BuildThings.build_house ( pos_x, pos_y, color="green", house="default", width=80, height=160 )
+    #
+    # I did not expect this to work, thought I would need @bldgx per building.
+    # ...but multiple images exist in this one attribute.
+    # I guess it is because they are built in order when initGame runs?
+    #  Nope!!! It's because you store the buildings in an array!
+    #
+    # This does make it easier to dynamically create buildings!
+    @bldg = BuildThings.build_house( 90, 40, "red", "custom", 200, 120 )
+    if $one_house==0
+      @bldg = BuildThings.build_house( WIDTH-200, HEIGHT-120, "red" )
+      @bldg = BuildThings.build_house( 200, 280, "green", "custom", 160, 80 )
+      @bldg = BuildThings.build_house( 300, 248, "blue", "custom", 80, 160  )
+      @bldg = BuildThings.build_house( WIDTH-20, HEIGHT-180, "green", "custom", 160, 80 )
     end
-
-
-    def initGame
-     
-      # Set background colour 
-      setStyleSheet "QWidget { background-color: #000000 }"
-
-      # Initialize main game attributes    
-      @left = false
-      @right = false
-      @up = false
-      @down = false
-      @shoot = false
-      @just_shot = false
-      @shoot_dir = "left"
-      @prev_shoot_dir = "left"
-      @inGame = true
-     
-      # Building my houses outside of begin/end loop (it was there from nibbles.. 
-      # BuildThings.build_house ( pos_x, pos_y, color="green", house="default", width=80, height=160 )
-      #
-      # I did not expect this to work, thought I would need @bldgx per building.
-      # ...but multiple images exist in this one attribute.
-      # I guess it is because they are built in order when initGame runs?
-      #  Nope!!! It's because you store the buildings in an array!
-      #
-      # This does make it easier to dynamically create buildings!
-      @bldg = BuildThings.build_house( 90, 40, "red", "custom", 200, 120 )
-      if $one_house==0
-        @bldg = BuildThings.build_house( WIDTH-200, HEIGHT-120, "red" )
-        @bldg = BuildThings.build_house( 200, 280, "green", "custom", 160, 80 )
-        @bldg = BuildThings.build_house( 300, 248, "blue", "custom", 80, 160  )
-        @bldg = BuildThings.build_house( WIDTH-20, HEIGHT-180, "green", "custom", 160, 80 )
-      end
       
-      print "$static_x: ", $static_x.to_s, "\n" if $static_arrays_mon==true
-      print "$static_y: ", $static_y.to_s, "\n" if $static_arrays_mon==true
+    print "$static_x: ", $static_x.to_s, "\n" if $static_arrays_mon==true
+    print "$static_y: ", $static_y.to_s, "\n" if $static_arrays_mon==true
 
-      # Paint images must be in initGame for game to function.
-      begin
-        @back_drop_pre_scale = $back_drops["default"]
-        @back_drop=@back_drop_pre_scale.scaled(WIDTH, HEIGHT)
-        @marine = $player_sprites["left"]
-        @shooty_sprite = $shooty_sprites["left"]
-
-=begin
-        puts "HERE"
-        puts @marine.height
-        puts "Before colorTable"
-        puts @marine.colorTable
-        puts "Before pixel"
-        puts @marine.pixel
-        puts "Before pixelIndex"
-        puts @marine.pixelIndex
-        puts "HERE_2"
-=end
-
+    # Paint images must be in initGame for game to function.
+    begin
+      @back_drop_pre_scale = $back_drops["default"]
+      @back_drop=@back_drop_pre_scale.scaled(WIDTH, HEIGHT)
+      @marine = $player_sprites["left"]
+      @shooty_sprite = $shooty_sprites["left"]
       @pewpew = Qt::Image.new $pewpew_sprite_left
         
-      rescue
-        puts "cannot load images"
-      end
+    rescue
+      puts "cannot load images"
+    end
 
-      # Place player in space
-      $player_x[0]=$player_x_pos
-      $player_y[0]=$player_y_pos
+    # Place player in space
+    $player_x[0]=$player_x_pos
+    $player_y[0]=$player_y_pos
 
-      # Place beasty in space
-      $beast_x[0]=$beast_x_pos
-      $beast_y[0]=$beast_y_pos
-      $beast_x[1]=40
-      $beast_y[1]=40
+    # Place beasty in space
+    $beast_x[0]=$beast_x_pos
+    $beast_y[0]=$beast_y_pos
+    $beast_x[1]=40
+    $beast_y[1]=40
       
-      # Diagnostics
-      if $diagnostics > 0
-          print "=== GAME_START ===\n"
-          print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
-          if $beast_hidden!=1
-            $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
-          end
-        print "---------------- \n"
-        end
+    # Diagnostics
+    if $diagnostics > 0
+      print "=== GAME_START ===\n"
+      print "Marine-x: ", $player_x[0], " - Marine-y: ", $player_y[0], "\n" 
+      if $beast_hidden!=1
+        $beasts.each {|i| print "Beast-x[", i, "]: ", $beast_x[i], " - Beast-y[", i, "]: ", $beast_y[i], "\n" }
+      end
+      print "---------------- \n"
+    end
        
-      # Adding beasty here for now
-      @beasty = Qt::Image.new "beasty_lol.png"
+    # Adding beasty here for now
+    @beasty = Qt::Image.new "beasty_lol.png"
 
-      if $timer_inactive==0
-        @timer = Qt::BasicTimer.new 
-        @timer.start($game_timer, self)
+    if $timer_inactive==0
+      @timer = Qt::BasicTimer.new 
+      @timer.start($game_timer, self)
+    end
+
+
+  end 
+  ### END OF initgame ###
+
+  
+  def paintEvent event
+
+    painter = Qt::Painter.new
+    painter.begin self
+
+    if @inGame
+      drawObjects painter
+
+      if $diagnostics_shooting_timer==1
+        puts $shots_direc[$shots_counter]
+        print "Just shot: \n"
+        print "@shoot_dir: ", @shoot_dir, "\n"
+        print "$shots_counter: ", $shots_counter.to_s, "\n"
+        print "$player_x.to_s: ", $player_x.to_s, "\n"
+        print "$player_y.to_s: ", $player_y.to_s, "\n"
+        print "$shots_active: ", $shots_active.to_s, "\n"
+        print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+        print "$shots_direc_values: ", $shots_direc.values, "\n"
+        print "\n\n"
       end
 
-
-   
-    end
-
-
-    # Simply check if we are @ingame or not.
-    def paintEvent event
-
-        painter = Qt::Painter.new
-        painter.begin self
-
-        if @inGame
-            drawObjects painter
-        if $diagnostics_shooting_timer==1
-          puts $shots_direc[$shots_counter]
-          print "Just shot: \n"
-          print "@shoot_dir: ", @shoot_dir, "\n"
-          print "$shots_counter: ", $shots_counter.to_s, "\n"
-          print "$player_x.to_s: ", $player_x.to_s, "\n"
-          print "$player_y.to_s: ", $player_y.to_s, "\n"
-          print "$shots_active: ", $shots_active.to_s, "\n"
-          print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-          print "$shots_direc_values: ", $shots_direc.values, "\n"
-          print "\n\n"
-        end
-
-        # check if any shots in play, or clear arrays/hashes/counters 
-        if $shots_direc.value?("left")==true
-        else          
-          if $shots_direc.value?("right")==true
-          else
-            if $shots_direc.value?("up")==true
+      # check if any shots in play, or clear arrays/hashes/counters 
+      if $shots_direc.value?("left")==true 
+        if $shots_direc.value?("right")==true
+          if $shots_direc.value?("up")==true
+            if $shots_direc.value?("down")==true
+              print "Bullets still in play" if $shooting_diagnostics > 1
             else
-              if $shots_direc.value?("down")==true
-             else
-                $shots_direc={}
-                $shots_counter=0
-                $shots_active=[]
-                # Required as we track shots and player positions in one array
-                player_at_x=$player_x[0]
-                player_at_y=$player_y[0]
-                $player_x=[]
-                $player_y=[]
-                $player_x[0]=player_at_x
-                $player_y[0]=player_at_y
-             end
-           end
-         end
-       end
-
-    
-        else 
-            gameOver painter
+              $shots_direc={}
+              $shots_counter=0
+              $shots_active=[]
+              # Required as we track shots and player positions in one array
+              player_at_x=$player_x[0]
+              player_at_y=$player_y[0]
+              print "Clearing arrays" 
+              $player_x=[]
+              $player_y=[]
+              $player_x[0]=player_at_x
+              $player_y[0]=player_at_y
+            end
+          end
         end
-
-        painter.end
+      end
+    
+    else 
+      gameOver painter
     end
+
+      painter.end
+  end
 
     # Keeps things moving even when player is not
     def timerEvent event
 
 	@just_shot=false    
+        $shooting_delay_timer+=1
+        print "$shooting_delay_timer: ", $shooting_delay_timer, "\n"
+        
+
         # Check if shot sprites are on screen
         # figure out shots and place them
         if $shots_active != 0
@@ -328,7 +318,7 @@ class Board < Qt::Widget
               end
               p+=1
           end
-          # Check if bullets have collided (currently only works on static images)
+          # Check if bullets have collided
           $shots_direc.keys.each { |i|
             if checkCollision("player", i)==1 
               $player_x[i]=0
@@ -336,8 +326,6 @@ class Board < Qt::Widget
               $shots_direc[i]=nil
             end
           }
-      
-
         end
 
       # Acid Level
@@ -357,7 +345,16 @@ class Board < Qt::Widget
         end
         $unsettling_timer=0 unless $unsettling_timer < $unsettling
       end
-         repaint
+      
+      # Monster_delay
+      if $monster_delay_timer == $monster_delay
+        print "MOVING \n "
+      end
+      $monster_delay_timer+=1
+      move if $monster_delay_timer == $monster_delay
+      $monster_delay_timer=0 unless $monster_delay_timer < $monster_delay
+         
+      repaint
 
       #  Keeping here as a note if needing to stop timer
       #      @timer.stop
@@ -378,7 +375,8 @@ class Board < Qt::Widget
         painter.drawImage $static_x[q], $static_y[q], $bldgs[p] unless $bldgs[p]==nil
         # Due to the way we store collison data, this logic ensures each building
         # is placed in the right place
-        q+=( $bldgs[p].width / ( SPRITE_WIDTH / (ERR_TOLERANCE * 2 ) )*( $bldgs[p].height / (SPRITE_HEIGHT / ( ERR_TOLERANCE * 2 ) ) ) )
+        q+=( $bldgs[p].width / ( SPRITE_WIDTH / (ERR_TOLERANCE * 2 ) ) \
+            *( $bldgs[p].height / (SPRITE_HEIGHT / ( ERR_TOLERANCE * 2 ) ) ) )
         p+=1
       end  
  
@@ -467,51 +465,42 @@ class Board < Qt::Widget
 
         @shoot_dir="left" if @shoot_dir == nil 
         # Player Moves
-        if @left
+        case @player_move
+          when "left"
             $player_x[0] -= PLAYER_MOVE_X  unless $player_x[0] == 0 #  || @prev_shoot_dir != "left"
             @shoot_dir="left" unless @shoot==true 
             @prev_shoot_dir="left"
             @marine = $player_sprites["left"]
-            
-        end
-
-        if @right 
+          when "right" 
             $player_x[0] += PLAYER_MOVE_X  unless $player_x[0] == PERIMETER_RIGHT #  || @prev_shoot_dir != "right"
             @shoot_dir="right" unless @shoot==true 
             @prev_shoot_dir="right"
             @marine = $player_sprites["right"]
-        end
-
-        if @up
+          when "up"
             $player_y[0] -= PLAYER_MOVE_Y  unless $player_y[0] == 0 #  || @prev_shoot_dir != "up"
             @shoot_dir="up" unless @shoot==true
             @prev_shoot_dir="up"
             @marine = $player_sprites["up"]
-        end
-
-        if @down
+          when "down"
             $player_y[0] += PLAYER_MOVE_Y  unless $player_y[0] == PERIMETER_BOTTOM #  || @prev_shoot_dir != "down"
             @shoot_dir="down" unless @shoot==true
             @prev_shoot_dir="down"
             @marine = $player_sprites["down"]
-        end
+          else
+          end
 
         # collision check, currently against non-hurty static objects (buildings)
         if checkCollision("player", 0)==1
-          if @left
+          case @player_move
+            when "left"
               $player_x[0] += PLAYER_MOVE_X
-          end
-
-          if @right 
+            when "right"
               $player_x[0] -= PLAYER_MOVE_X
-          end
-
-          if @up
+            when "up"
               $player_y[0] += PLAYER_MOVE_Y
-          end
-
-          if @down
+            when "down"
               $player_y[0] -= PLAYER_MOVE_Y 
+            else
           end
         end
 
@@ -592,7 +581,9 @@ class Board < Qt::Widget
                 bullet_modifier_horiz=5 
               else
             end
-            print "Bullet [", sprite_num, "] - direction: ", bullet_direction, ", Modified- Horiz: ", bullet_modifier_vert, " Vert: ", bullet_modifier_horiz, "\n" if $debug > 6
+            print "Bullet [", sprite_num, "] - direction: ", bullet_direction, ", \
+                Modified- Horiz: ", bullet_modifier_vert, " Vert: ", bullet_modifier_horiz, \
+                "\n" if $debug > 6
           end
         hit=0
         p=0
@@ -602,7 +593,9 @@ class Board < Qt::Widget
         # Hopefully one day we can do this better :-)
         $static_y.each { |pos_y|
           if pos_y == (check_y[sprite_num] + ( SPRITE_HEIGHT / 2 ) )
-            print sprite, sprite_num, "HIT Solid Y at:", check_y[sprite_num], ". Their X is ", check_x[sprite_num], ". Checking againsts $static_x[", q,"] : ", $static_x[q], "\n" if $debug > 6
+            print sprite, sprite_num, "HIT Solid Y at:", check_y[sprite_num], \
+                ". Their X is ", check_x[sprite_num], ". Checking againsts $static_x[", \
+                q,"] : ", $static_x[q], "\n" if $debug > 6
             hit=1 if $static_x[q]==check_x[sprite_num] + bullet_modifier_horiz
           end
           break if hit==1
@@ -612,7 +605,9 @@ class Board < Qt::Widget
         # We also check X and corresponding Y, this is required.
         $static_x.count { |pos_x|
           if pos_x == (check_x[sprite_num] +( SPRITE_WIDTH / 2 ) - bullet_modifier_vert )
-            print sprite, sprite_num, "HIT Solid X at:", $static_x[p], ". Their Y is: ", check_y[sprite_num], ". Checking against $static_y[", p,"] : ", $static_y[p], "\n" if $debug > 6
+            print sprite, sprite_num, "HIT Solid X at:", $static_x[p], ". Their Y is: ", \
+                check_y[sprite_num], ". Checking against $static_y[", p,"] : ", $static_y[p], \
+                "\n" if $debug > 6
             hit=1 if $static_y[p]==check_y[sprite_num]+bullet_modifier_horiz
           end
           break if hit==1
@@ -649,7 +644,7 @@ class Board < Qt::Widget
                         $beast_life[beast_hit], "\n" if $diagnostics>=1
                     return hit 
                   else
-                    print "DID NOT HIT \n"
+                    print "DID NOT HIT \n" if $debug > 4
                   end
                 end
               }
@@ -674,7 +669,7 @@ class Board < Qt::Widget
                       $beast_life[beast_hit], "\n" if $diagnostics>=1
                     return hit
                   else
-                  print "DID NOT  HIT \n"
+                  print "DID NOT  HIT \n" if $debug > 4
                 end
               end
             }
@@ -701,116 +696,106 @@ class Board < Qt::Widget
 
     # Player has inputted someting, what was it?
     def keyPressEvent event
-       
+      
+        print "\n\n\n" if $debug > 0 
 	@just_shot = false 
+        
         key = event.key
       
         # Will work properly at some point, right now crashes out
         # Quicker than Alt-F4 or moving mouse ; )
-        if key == Qt::Key_Q.value
-          puts "Q pressed"
-          connect quit, ('clicked()'), $qApp, SLOT('quit()')
-        end
- 
-        print "\n\n\n" if $debug > 0 
-        if key == Qt::Key_Left.value
-            @left = true
-            @right = false
-            @up = false
-            @down = false
+        case key 
+          when Qt::Key_Q.value
+            puts "Q pressed"
+            connect quit, ('clicked()'), $qApp, SLOT('quit()')
+
+          when Qt::Key_Left.value
+            @player_move = "left"
             @shoot_dir = "left"
-            move
-        end
         
-        if key == Qt::Key_Right.value
-            @left = false
-            @right = true
-            @up = false
-            @down = false
+          when Qt::Key_Right.value
+            @player_move = "right"
             @shoot_dir = "right"
-            move
-        end
         
-        if key == Qt::Key_Up.value
-            @left = false
-            @right = false
-            @up = true
-            @down = false
+          when Qt::Key_Up.value
+            @player_move = "up"
             @shoot_dir = "up"
-            move
-        end
         
-        if key == Qt::Key_Down.value
-            @left = false
-            @right = false
-            @up = false
-            @down = true
+          when Qt::Key_Down.value
+            @player_move = "down"
             @shoot_dir = "down"
-            move
-        end
 
-        if key == Qt::Key_Space.value
-            
-            # Is there a way to get Qt to play sounds, I suspect so...
-            # I'm not sure if the sound if being sent or not
-            # I have found it requires /dev/dsp on linux
-            # ... which meant installing/loading alsa-oss libraries
-            #
-            # @pewpew_sound = Qt::Sound.new "pewpew.wav"
-            # @pewpew_sound.play
-            # This shows the sound is loaded
-            # - puts @pewpew_sound.to_s
-            #
-            # For now I will use this suggestion, good enough to get the feel!
-            pid = fork{ exec 'aplay', 'pewpew.wav' }
-            
-            @shoot = true
-            @left = false
-            @right = false
-            @up = false
-            @down = false
-	    @just_shot = true
-            $shots_counter+=1
-            $shots_active.push 1
-            case @shoot_dir
-              when "left"
-                $player_x[$shots_counter]=$player_x[0]-SPRITE_WIDTH
-                $player_y[$shots_counter]=$player_y[0]+( ( SPRITE_HEIGHT / 2 ) - 5 )
-                @pewpew = Qt::Image.new $pewpew_sprite_left
-                $shots_direc[$shots_counter]="left"
-              when "right"
-                $player_x[$shots_counter]=$player_x[0]+SPRITE_WIDTH
-                $player_y[$shots_counter]=$player_y[0]+( ( SPRITE_HEIGHT / 2 ) - 5 )
-                @pewpew = Qt::Image.new $pewpew_sprite_right
-                $shots_direc[$shots_counter]="right"
-              when "up"
-                $player_x[$shots_counter]=$player_x[0]+( SPRITE_WIDTH / 2 )
-                $player_y[$shots_counter]=$player_y[0]-( SPRITE_HEIGHT / 8 ) 
-                @pewpew = Qt::Image.new $pewpew_sprite_up
-                $shots_direc[$shots_counter]="up"
-              when "down"
-                $player_x[$shots_counter]=$player_x[0]+( SPRITE_WIDTH / 2 )
-                $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT  )
-                @pewpew = Qt::Image.new $pewpew_sprite_down
-                $shots_direc[$shots_counter]="down"
+          when Qt::Key_Space.value 
+
+            if $shooting_delay_timer <= $shooting_delay
+              print "Delayed \n" if $diagnostics < 1
+
+            else
+              $shooting_delay_timer = 0
+              print "Reset $shooting_delay_timer \n" if $diagnostics < 1
+           
+              # Is there a way to get Qt to play sounds, I suspect so...
+              # I'm not sure if the sound if being sent or not
+              # I have found it requires /dev/dsp on linux
+              # ... which meant installing/loading alsa-oss libraries
+              #
+              # @pewpew_sound = Qt::Sound.new "pewpew.wav"
+              # @pewpew_sound.play
+              # This shows the sound is loaded
+              # - puts @pewpew_sound.to_s
+              #
+              # For now I will use this suggestion, good enough to get the feel!
+              pid = fork{ exec 'aplay', 'pewpew.wav' }
+              @shoot = true
+              @left = false
+              @right = false
+              @up = false
+              @down = false
+              @just_shot = true
+              $shots_counter+=1
+              $shots_active.push 1
+              case @shoot_dir
+                when "left"
+                  $player_x[$shots_counter]=$player_x[0]-SPRITE_WIDTH
+                  $player_y[$shots_counter]=$player_y[0]+( ( SPRITE_HEIGHT / 2 ) - 5 )
+                  @pewpew = Qt::Image.new $pewpew_sprite_left
+                  $shots_direc[$shots_counter]="left"
+                when "right"
+                  $player_x[$shots_counter]=$player_x[0]+SPRITE_WIDTH
+                  $player_y[$shots_counter]=$player_y[0]+( ( SPRITE_HEIGHT / 2 ) - 5 )
+                  @pewpew = Qt::Image.new $pewpew_sprite_right
+                  $shots_direc[$shots_counter]="right"
+                when "up"
+                  $player_x[$shots_counter]=$player_x[0]+( SPRITE_WIDTH / 2 )
+                  $player_y[$shots_counter]=$player_y[0]-( SPRITE_HEIGHT / 8 ) 
+                  @pewpew = Qt::Image.new $pewpew_sprite_up
+                  $shots_direc[$shots_counter]="up"
+                when "down"
+                  $player_x[$shots_counter]=$player_x[0]+( SPRITE_WIDTH / 2 )
+                  $player_y[$shots_counter]=$player_y[0]+( SPRITE_HEIGHT  )
+                  @pewpew = Qt::Image.new $pewpew_sprite_down
+                  $shots_direc[$shots_counter]="down"
+                else
+              end
             end
-            move
-        end
+          end
 
-        if $diagnostics_shooting==1
-          puts $shots_direc[$shots_counter]
-          print "Just shot: \n"
-          print "@shoot_dir: ", @shoot_dir, "\n"
-          print "$shots_counter: ", $shots_counter.to_s, "\n"
-          print "$player_x.to_s: ", $player_x.to_s, "\n"
-          print "$player_y.to_s: ", $player_y.to_s, "\n"
-          print "$shots_active: ", $shots_active.to_s, "\n"
-          print "$shots_direc_keys: ", $shots_direc.keys, "\n"
-          print "$shots_direc_values: ", $shots_direc.values, "\n"
-          print "\n\n"
-        end
+          if $diagnostics_shooting==1
+            puts $shots_direc[$shots_counter]
+            print "Just shot: ", @just_shot, "\n"
+            print "@shoot_dir: ", @shoot_dir, "\n"
+            print "$shots_counter: ", $shots_counter.to_s, "\n"
+            print "$player_x.to_s: ", $player_x.to_s, "\n"
+            print "$player_y.to_s: ", $player_y.to_s, "\n"
+            print "$shots_active: ", $shots_active.to_s, "\n"
+            print "$shots_direc_keys: ", $shots_direc.keys, "\n"
+            print "$shots_direc_values: ", $shots_direc.values, "\n"
+            print "\n\n"
+          end
 
+        move # unless @just_shot == true
+        @player_move = "none"
         repaint
-    end
-end
+     end
+  end
 end
